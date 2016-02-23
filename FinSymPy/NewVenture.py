@@ -358,7 +358,7 @@ class NewVentureValuationModel:
         # model Valuation
         self.Val_of_FCF = \
             net_present_value(
-                cash_flows=self.FCF,
+                cash_flows=[0.] + self.FCF[1:],
                 discount_rate=self.ProFormaPeriodDiscountRate)
 
         self.Val_of_TV = \
@@ -453,11 +453,8 @@ class NewVentureValuationModel:
         for k, v in kwargs.items():
             a = getattr(self, '%s___input' % k)
             if isinstance(a, (list, tuple)):
-                if (not isinstance(a[0], Symbol)) and isnan(a[0]):
-                    for i in range(1, len(v)):
-                        inputs[a[i].name] = v[i]
-                else:
-                    for i in range(len(v)):
+                for i in range(len(v)):
+                    if isinstance(a[i], Symbol) and not isnan(v[i]):
                         inputs[a[i].name] = v[i]
             else:
                 inputs[a.name] = v
@@ -471,7 +468,6 @@ class NewVentureValuationModel:
                 return nan
             else:
                 return float(sympy_eval_by_theano(sympy_expr=x, symbols=self.input_symbols, **inputs))
-
 
         results = {}
         df = DataFrame(index=['Year 0'] + range(self.year_0 + 1, self.final_pro_forma_year + 1))

@@ -355,6 +355,9 @@ class NewVentureValuationModel:
                 long_term_discount_rate=self.StabilizedDiscountRate,
                 long_term_growth_rate=self.LongTermGrowthRate___input)
 
+        self.TV_RevenueMultiple = \
+            self.TV / self.Revenue[-1]
+
         # model Valuation
         self.Val_of_FCF = \
             net_present_value(

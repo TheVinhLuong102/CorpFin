@@ -107,7 +107,7 @@ class NewVentureValuationModel:
         one_minus_corp_tax_rate = 1. - self.CorpTaxRate___input
 
         self.EBIAT = \
-            map(lambda x: (x > 0.) * one_minus_corp_tax_rate * x,
+            map(lambda x: (1. - (x > 0.) * one_minus_corp_tax_rate) * x,
                 self.EBIT)
 
         # model CLOSING Fixed Assets NET of cumulative Depreciation

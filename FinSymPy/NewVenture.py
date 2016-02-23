@@ -305,6 +305,11 @@ class NewVentureValuationModel:
             self.PublicMarketPremium___input + \
             (self.PublicMarketPremium___input <= 0.) * (self.PublicMarketReturn___input - self.RiskFreeRate___input)
 
+        self.InvestmentManagerFeePremium___input = \
+            Symbol(
+                self.venture_name_prefix +
+                'InvestmentManagerFeePremium')
+
         self.ProFormaPeriodBeta___input = \
             Symbol(
                 self.venture_name_prefix +
@@ -318,7 +323,8 @@ class NewVentureValuationModel:
         self.ProFormaPeriodDiscountRate = \
             self.ProFormaPeriodDiscountRate___input + \
             (self.ProFormaPeriodDiscountRate___input <= 0.) * \
-            (self.RiskFreeRate___input + self.ProFormaPeriodBeta___input * self.PublicMarketPremium)
+            (self.RiskFreeRate___input + self.InvestmentManagerFeePremium___input +
+             self.ProFormaPeriodBeta___input * self.PublicMarketPremium)
 
         self.StabilizedBeta___input = \
             Symbol(
@@ -387,7 +393,7 @@ class NewVentureValuationModel:
              'NWC', 'NWC_over_Revenue', 'NWCGrowth',
              'NWCChange',
              'NWCChange_over_Revenue', 'NWCChange_over_RevenueChange',
-             'RiskFreeRate', 'PublicMarketReturn', 'PublicMarketPremium',
+             'RiskFreeRate', 'PublicMarketReturn', 'PublicMarketPremium', 'InvestmentManagerFeePremium',
              'ProFormaPeriodBeta', 'ProFormaPeriodDiscountRate',
              'StabilizedBeta', 'StabilizedDiscountRate',
              'LongTermGrowthRate',

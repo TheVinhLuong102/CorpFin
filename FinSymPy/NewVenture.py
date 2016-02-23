@@ -484,7 +484,7 @@ class NewVentureValuationModel:
                     df[output] = result
                 else:
                     df[output] = ''
-                    if output == 'TV':
+                    if output in ('TV', 'TV_RevenueMultiple'):
                         df.loc[self.final_pro_forma_year, output] = result
                     else:
                         df.loc['Year 0', output] = result

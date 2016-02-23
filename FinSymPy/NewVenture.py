@@ -358,6 +358,9 @@ class NewVentureValuationModel:
         self.TV_RevenueMultiple = \
             self.TV / self.Revenue[-1]
 
+        self.TV_EBITMultiple = \
+            (self.EBIT[-1] > 0) * self.TV / self.EBIT[-1]
+
         # model Valuation
         self.Val_of_FCF = \
             net_present_value(
@@ -422,7 +425,7 @@ class NewVentureValuationModel:
              'NWCChange', 'NWCChange_over_Revenue',
              'NWCChange_over_RevenueChange',
              'FCF',
-             'TV',
+             'TV', 'TV_RevenueMultiple', 'TV_EBITMultiple',
              'Val_of_FCF', 'Val_of_TV', 'Val']
 
         # compile Outputs if so required

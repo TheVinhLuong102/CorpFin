@@ -3,7 +3,9 @@ from .Security import Security
 
 
 def val(asset):
-    if isinstance(asset, Security):
+    if isinstance(asset, (int, float)):
+        return asset
+    elif isinstance(asset, Security):
         return asset.val
     else:
         return asset.val()

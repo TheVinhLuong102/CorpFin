@@ -14,4 +14,4 @@ class Security:
         return 'Security' + s + ': Par = %.3g, Val = %.3g' % (self.par, self.val)
 
 
-DOLLAR = Security(name='dollar', par=1., val=1.)
+DOLLAR = Security(name='$', par=1., val=1.)

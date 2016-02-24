@@ -1,8 +1,8 @@
 
 
 class Security:
-    def __init__(self, name='', par=0., val=0.):
-        self.name = name
+    def __init__(self, label='', par=0., val=0.):
+        self.name = label
         self.par = par
         self.val = val
 
@@ -14,4 +14,4 @@ class Security:
         return 'Security' + s + ': Par = %.3g, Val = %.3g' % (self.par, self.val)
 
 
-DOLLAR = Security(name='$', par=1., val=1.)
+DOLLAR = Security(label='$', par=1., val=1.)

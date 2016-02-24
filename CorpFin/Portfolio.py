@@ -3,12 +3,12 @@ from .Security import Security
 
 
 def val(asset):
-    if isinstance(asset, (int, float)):
-        return asset
-    elif isinstance(asset, Security):
+    if isinstance(asset, Security):
         return asset.val
-    else:
+    elif isinstance(asset, Portfolio):
         return asset.val()
+    else:
+        return asset
 
 
 class Portfolio:
@@ -33,6 +33,6 @@ class Portfolio:
                     s = ''
                 asset = 'Portfolio' + s + ': Val = %.3g' % v
             else:
-                asset = repr(asset)
+                asset = str(asset)
             df.loc[i] = [n, asset, n * v]
-        return repr(df)
+        return str(df)

@@ -12,9 +12,9 @@ def val(asset):
 
 
 class Portfolio:
-    def __init__(self, name, *n_assets):
-        self.name = name
-        self.c = [(x[0], x[1]) if isinstance(x, (list, tuple)) else (1, x)
+    def __init__(self, label, *n_assets):
+        self.name = label
+        self.c = [[x[0], x[1]] if isinstance(x, (list, tuple)) else [1, x]
                   for x in n_assets]
 
     def val(self):

@@ -3,8 +3,8 @@
 class Security:
     def __init__(
             self, label='',
-            bs_val=lambda *args, **kwargs: 0.,
-            val=lambda *args, **kwargs: 0.):
+            bs_val=lambda **kwargs: 0.,
+            val=lambda **kwargs: 0.):
         self.name = label
         self.bs_val = bs_val
         self.val = val
@@ -13,5 +13,5 @@ class Security:
 DOLLAR = \
     Security(
         label='$',
-        bs_val=lambda *args, **kwargs: 1.,
-        val=lambda *args, **kwargs: 1.)
+        bs_val=lambda **kwargs: 1.,
+        val=lambda **kwargs: 1.)

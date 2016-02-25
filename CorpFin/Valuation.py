@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 from numpy import nan, isnan
 from pandas import DataFrame
-from sympy import Expr, Symbol, symbols
+from sympy import Eq, Expr, Piecewise, Symbol, symbols
 from sympy.printing.theanocode import theano_function
 from HelpyFuncs.SymPy import sympy_eval_by_theano
 
@@ -60,8 +60,11 @@ class ValuationModel:
         self.Revenue = [self.Revenue___input[0]]
         for i in index_range_from_1:
             self.Revenue.append(
-                self.Revenue___input[i] +
-                (self.Revenue___input[i] <= 0.) * (1. + self.RevenueGrowth___input[i]) * self.Revenue[-1])
+                Piecewise(
+                    ((1. + self.RevenueGrowth___input[i]) * self.Revenue[-1],
+                     Eq(self.Revenue___input[i], 0.)),
+                    (self.Revenue___input[i],
+                     True)))
 
         self.RevenueChange = \
             [nan] + \
@@ -102,10 +105,15 @@ class ValuationModel:
                 'EBITMargin___%d:%d' % (year_0, self.final_pro_forma_year + 1))
 
         self.EBIT = \
-            [self.EBIT___input[i] +
-             (self.EBIT___input[i] <= 0.) *
-             ((self.OpEx[i] > 0.) * (self.Revenue[i] - self.OpEx[i]) +
-              (self.OpEx[i] <= 0.) * (self.EBITMargin___input[i] * self.Revenue[i]))
+            [Piecewise(
+                (Piecewise(
+                    (self.EBITMargin___input[i] * self.Revenue[i],
+                     Eq(self.OpEx[i], 0.)),
+                     (self.Revenue[i] - self.OpEx[i],
+                      True)),
+                 Eq(self.EBIT___input[i], 0.)),
+                (self.EBIT___input[i],
+                 True))
              for i in index_range]
 
         self.EBITMargin = \
@@ -124,7 +132,12 @@ class ValuationModel:
                 'CorpTaxRate')
 
         self.EBIAT = \
-            map(lambda x: (1. - (x > 0.) * self.CorpTaxRate___input) * x,
+            map(lambda x:
+                Piecewise(
+                    ((1. - self.CorpTaxRate___input) * x,
+                     x > 0),
+                    (x,
+                     True)),
                 self.EBIT)
 
         # model CLOSING Fixed Assets NET of cumulative Depreciation
@@ -147,10 +160,15 @@ class ValuationModel:
         self.FA = [self.FA___input[0]]
         for i in index_range_from_1:
             self.FA.append(
-                self.FA___input[i] +
-                (self.FA___input[i] <= 0.) *
-                (self.FA_over_Revenue___input[i] * self.Revenue[i] +
-                 (1. + self.FAGrowth___input[i]) * self.FA[-1]))
+                Piecewise(
+                    (Piecewise(
+                        ((1. + self.FAGrowth___input[i]) * self.FA[-1],
+                         Eq(self.FA_over_Revenue___input[i], 0.)),
+                        (self.FA_over_Revenue___input[i] * self.Revenue[i],
+                         True)),
+                     Eq(self.FA___input[i], 0.)),
+                    (self.FA___input[i],
+                     True)))
 
         self.FA_over_Revenue = \
             [self.FA[i] / self.Revenue[i]
@@ -174,9 +192,11 @@ class ValuationModel:
 
         self.Depreciation = \
             [self.Depreciation___input[0]] + \
-            [self.Depreciation___input[i] +
-             (self.Depreciation___input[i] <= 0.) *
-             self.Depreciation_over_prevFA___input * self.FA[i - 1]
+            [Piecewise(
+                (self.Depreciation_over_prevFA___input * self.FA[i - 1],
+                 Eq(self.Depreciation___input[i], 0.)),
+                (self.Depreciation___input[i],
+                 True))
              for i in index_range_from_1]
 
         self.Depreciation_over_prevFA = \
@@ -209,12 +229,23 @@ class ValuationModel:
         self.CapEx = [self.CapEx___input[0]]
         for i in index_range_from_1:
             self.CapEx.append(
-                self.CapEx___input[i] +
-                (self.CapEx___input[i] <= 0.) *
-                (self.FA[i] + self.Depreciation[i] - self.FA[i - 1] +
-                 self.CapEx_over_Revenue___input[i] * self.Revenue[i] +
-                 self.CapEx_over_RevenueChange___input * self.RevenueChange[i] +
-                 (1. + self.CapExGrowth___input[i]) * self.CapEx[-1]))
+                Piecewise(
+                    (Piecewise(
+                        (Piecewise(
+                            (Piecewise(
+                                (self.FA[i] + self.Depreciation[i] - self.FA[i - 1],
+                                 Eq(self.CapExGrowth___input[i], 0.)),
+                                ((1. + self.CapExGrowth___input[i]) * self.CapEx[-1],
+                                 True)),
+                             Eq(self.CapEx_over_RevenueChange___input, 0.)),
+                            (self.CapEx_over_RevenueChange___input * self.RevenueChange[i],
+                             True)),
+                         Eq(self.CapEx_over_Revenue___input[i], 0.)),
+                        (self.CapEx_over_Revenue___input[i] * self.Revenue[i],
+                         True)),
+                     Eq(self.CapEx___input[i], 0.)),
+                    (self.CapEx___input[i],
+                     True)))
 
         self.CapEx_over_Revenue = \
             [self.CapEx[i] / self.Revenue[i]
@@ -250,10 +281,14 @@ class ValuationModel:
         self.NWC = [self.NWC___input[0]]
         for i in index_range_from_1:
             self.NWC.append(
-                self.NWC___input[i] +
-                (self.NWC___input[i] <= 0.) *
-                (self.NWC_over_Revenue___input[i] * self.Revenue[i] +
-                 (1. + self.NWCGrowth___input[i]) * self.NWC[-1]))
+                Piecewise(
+                    (Piecewise(
+                        ((1. + self.NWCGrowth___input[i]) * self.NWC[-1],
+                         Eq(self.NWC_over_Revenue___input[i], 0.)),
+                        (self.NWC_over_Revenue___input[i] * self.Revenue[i], True)),
+                     Eq(self.NWC___input[i], 0.)),
+                    (self.NWC___input[i],
+                     True)))
 
         self.NWC_over_Revenue = \
             [self.NWC[i] / self.Revenue[i]
@@ -282,11 +317,19 @@ class ValuationModel:
         self.NWCChange = [self.NWCChange___input[0]]
         for i in index_range_from_1:
             self.NWCChange.append(
-                self.NWCChange___input[i] +
-                (self.NWCChange___input[i] <= 0.) *
-                (self.NWC[i] - self.NWC[i - 1] +
-                 self.NWCChange_over_Revenue___input[i] * self.Revenue[i] +
-                 self.NWCChange_over_RevenueChange___input * self.RevenueChange[i]))
+                Piecewise(
+                    (Piecewise(
+                        (Piecewise(
+                            (self.NWC[i] - self.NWC[i - 1],
+                             Eq(self.NWCChange_over_RevenueChange___input, 0.)),
+                            (self.NWCChange_over_RevenueChange___input * self.RevenueChange[i],
+                             True)),
+                         Eq(self.NWCChange_over_Revenue___input[i], 0.)),
+                        (self.NWCChange_over_Revenue___input[i] * self.Revenue[i],
+                         True)),
+                     Eq(self.NWCChange___input[i], 0.)),
+                    (self.NWCChange___input[i],
+                     True)))
 
         self.NWCChange_over_Revenue = \
             [self.NWCChange[i] / self.Revenue[i]
@@ -319,8 +362,11 @@ class ValuationModel:
                 'PublicMarketPremium')
 
         self.PublicMarketPremium = \
-            self.PublicMarketPremium___input + \
-            (self.PublicMarketPremium___input <= 0.) * (self.PublicMarketReturn___input - self.RiskFreeRate___input)
+            Piecewise(
+                (self.PublicMarketReturn___input - self.RiskFreeRate___input,
+                 Eq(self.PublicMarketPremium___input, 0.)),
+                (self.PublicMarketPremium___input,
+                 True))
 
         self.InvestmentManagerFeePremium___input = \
             Symbol(
@@ -338,10 +384,12 @@ class ValuationModel:
                 'ProFormaPeriodDiscountRate')
 
         self.ProFormaPeriodDiscountRate = \
-            self.ProFormaPeriodDiscountRate___input + \
-            (self.ProFormaPeriodDiscountRate___input <= 0.) * \
-            (self.RiskFreeRate___input + self.InvestmentManagerFeePremium___input +
-             self.ProFormaPeriodBeta___input * self.PublicMarketPremium)
+            Piecewise(
+                (self.RiskFreeRate___input + self.InvestmentManagerFeePremium___input +
+                     self.ProFormaPeriodBeta___input * self.PublicMarketPremium,
+                 Eq(self.ProFormaPeriodDiscountRate___input, 0.)),
+                (self.ProFormaPeriodDiscountRate___input,
+                 True))
 
         self.StabilizedBeta___input = \
             Symbol(
@@ -354,9 +402,11 @@ class ValuationModel:
                 'StabilizedDiscountRate')
 
         self.StabilizedDiscountRate = \
-            self.StabilizedDiscountRate___input + \
-            (self.StabilizedDiscountRate___input <= 0.) * \
-            (self.RiskFreeRate___input + self.StabilizedBeta___input * self.PublicMarketPremium)
+            Piecewise(
+                (self.RiskFreeRate___input + self.StabilizedBeta___input * self.PublicMarketPremium,
+                 Eq(self.StabilizedDiscountRate___input, 0.)),
+                (self.StabilizedDiscountRate___input,
+                 True))
 
         # model Long-Term Growth Rate
         self.LongTermGrowthRate___input = \
@@ -371,18 +421,22 @@ class ValuationModel:
                 'TV_RevenueMultiple')
 
         self.TV = \
-            self.TV_RevenueMultiple___input * self.Revenue[-1] + \
-            (self.TV_RevenueMultiple___input <= 0.) * \
-            terminal_value(
-                terminal_cash_flow=self.FCF[-1],
-                long_term_discount_rate=self.StabilizedDiscountRate,
-                long_term_growth_rate=self.LongTermGrowthRate___input)
+            Piecewise(
+                (terminal_value(
+                    terminal_cash_flow=self.FCF[-1],
+                    long_term_discount_rate=self.StabilizedDiscountRate,
+                    long_term_growth_rate=self.LongTermGrowthRate___input),
+                  Eq(self.TV_RevenueMultiple___input, 0.)),
+                 (self.TV_RevenueMultiple___input * self.Revenue[-1],
+                  True))
 
         self.TV_RevenueMultiple = \
             self.TV / self.Revenue[-1]
 
         self.TV_EBITMultiple = \
-            (self.EBIT[-1] > 0) * self.TV / self.EBIT[-1]
+            Piecewise(
+                (self.TV / self.EBIT[-1], self.EBIT[-1] > 0),
+                (0., True))
 
         # model Valuation
         self.Val_of_FCF = \

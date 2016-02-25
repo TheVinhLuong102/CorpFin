@@ -234,7 +234,7 @@ class ValuationModel:
                         (Piecewise(
                             (Piecewise(
                                 (self.FA[i] + self.Depreciation[i] - self.FA[i - 1],
-                                 Eq(self.CapExGrowth___input[i], 0.)),
+                                 Eq(self.CapExGrowth___input[i], -1.)),
                                 ((1. + self.CapExGrowth___input[i]) * self.CapEx[-1],
                                  True)),
                              Eq(self.CapEx_over_RevenueChange___input, 0.)),

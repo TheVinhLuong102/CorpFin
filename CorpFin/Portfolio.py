@@ -38,4 +38,4 @@ class Portfolio:
             df.loc[i] = [n, asset_str, n * v]
 
         df.loc['', 'val'] = df.val.sum()
-        return str(df)
+        return df

@@ -1,17 +1,17 @@
 
 
 class Security:
-    def __init__(self, label='', par=0., val=0.):
+    def __init__(
+            self, label='',
+            bs_val=lambda *args, **kwargs: 0.,
+            val=lambda *args, **kwargs: 0.):
         self.name = label
-        self.par = par
+        self.bs_val = bs_val
         self.val = val
 
-    def __repr__(self):
-        if self.name:
-            s = ' "%s"' % self.name
-        else:
-            s = ''
-        return 'Security' + s + ': Par = %.3g, Val = %.3g' % (self.par, self.val)
 
-
-DOLLAR = Security(label='$', par=1., val=1.)
+DOLLAR = \
+    Security(
+        label='$',
+        bs_val=lambda *args, **kwargs: 1.,
+        val=lambda *args, **kwargs: 1.)

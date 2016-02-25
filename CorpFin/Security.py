@@ -1,13 +1,15 @@
+from HelpyFuncs.SymPy import sympy_theanify
 
 
 class Security:
-    def __init__(
-            self, label='',
-            bs_val=lambda **kwargs: 0.,
-            val=lambda **kwargs: 0.):
+    def __init__(self, label='', bs_val=0., val=0.):
         self.label = label
-        self.bs_val = bs_val
-        self.val = val
+
+        self.bs_val_expr = bs_val
+        self.bs_val = sympy_theanify(bs_val)
+
+        self.val_expr = val
+        self.val = sympy_theanify(val)
 
     def __call__(self, **kwargs):
         if self.label:
@@ -17,8 +19,4 @@ class Security:
         return 'Security' + s + ': BS Val = %.3g, Val = %.3g' % (self.bs_val(**kwargs), self.val(**kwargs))
 
 
-DOLLAR = \
-    Security(
-        label='$',
-        bs_val=lambda **kwargs: 1.,
-        val=lambda **kwargs: 1.)
+DOLLAR = Security(label='$', bs_val=1., val=1.)

@@ -2,37 +2,40 @@ from pandas import DataFrame
 from .Security import Security
 
 
-def val(asset):
-    if isinstance(asset, Security):
-        return asset.val
-    elif isinstance(asset, Portfolio):
-        return asset.val()
+def val(asset, **kwargs):
+    if isinstance(asset, (Security, Portfolio)):
+        return asset.val(**kwargs)
     else:
         return asset
 
 
 class Portfolio:
     def __init__(self, label, *n_assets):
-        self.name = label
+        self.label = label
         self.c = [[x[0], x[1]] if isinstance(x, (list, tuple)) else [1, x]
                   for x in n_assets]
 
-    def val(self):
-        return reduce(lambda x, y: x + y, map(lambda x: x[0] * val(x[1]), self.c))
+    def val(self, **kwargs):
+        return reduce(lambda x, y: x + y, map(lambda x: x[0] * val(x[1], **kwargs), self.c))
 
-    def __repr__(self):
+    def __call__(self, **kwargs):
         df = DataFrame(columns=['n', 'asset', 'val'])
-        df.loc[''] = ['', 'TOTAL', self.val()]
+        df.loc[''] = ['', 'TOTAL', 0.]
+
         for i in range(len(self.c)):
             n, asset = self.c[i]
-            v = val(asset)
+            v = val(asset, **kwargs)
             if isinstance(asset, Portfolio):
-                if asset.name:
-                    s = ' "%s"' % asset.name
+                if asset.label:
+                    s = ' "%s"' % asset.label
                 else:
                     s = ''
-                asset = 'Portfolio' + s + ': Val = %.3g' % v
+                asset_str = 'Portfolio' + s + ': Val = %.3g' % v
+            elif isinstance(asset, Security):
+                asset_str = asset(**kwargs)
             else:
-                asset = str(asset)
-            df.loc[i] = [n, asset, n * v]
+                asset_str = str(asset)
+            df.loc[i] = [n, asset_str, n * v]
+
+        df.loc['', 'val'] = df.val.sum()
         return str(df)

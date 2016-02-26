@@ -20,3 +20,9 @@ class Security:
 
 
 DOLLAR = Security(label='$', bs_val=1., val=1.)
+
+
+class NSecurity:
+    def __init__(self, n=1, security=DOLLAR):
+        self.n = n
+        self.security = security

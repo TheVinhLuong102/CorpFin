@@ -107,6 +107,8 @@ class CapitalStructure:
             while not (security_label in cap_struct[i]):
                 i += 1
             cap_struct[i].remove(security_label)
+            if not cap_struct[i]:
+                del cap_struct.lifo[i]
             del cap_struct.optional_conversion_ratios[security_label]
         else:
             n_security.n -= n
@@ -124,7 +126,7 @@ class CapitalStructure:
 
         if security_label in cap_struct.optional_conversion_ratios:
             n_security = cap_struct[security_label]
-            n_security_common_shares = cap_struct[0]
+            n_security_common_shares = cap_struct[cap_struct[0][0]]
             r = cap_struct.optional_conversion_ratios[security_label]
             if n is None:
                 n = n_security.n

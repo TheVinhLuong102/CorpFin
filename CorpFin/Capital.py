@@ -29,6 +29,9 @@ class CapitalStructure:
             item = self.lifo[item]
         return self.outstanding[item]
 
+    def __iter__(self):
+        return self.outstanding.keys()
+
     def copy(self, deep=True):
         if deep:
             return deepcopy(self)
@@ -53,8 +56,9 @@ class CapitalStructure:
                 security.val = sympy_theanify(v / n)
         print('done!')
 
-    def __call__(self, value, **kwargs):
-        pass
+    def __call__(self, **kwargs):
+        return {security_label: self[security_label].security.val(**kwargs)
+                for security_label in self}
 
     def issue(self, security='', n=1, liquidation_order=0, inplace=True, deep=True):
         if inplace:

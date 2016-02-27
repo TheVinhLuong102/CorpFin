@@ -106,8 +106,9 @@ class CapitalStructure:
             i = 0
             while not (security_label in cap_struct[i]):
                 i += 1
-            cap_struct[i].remove(security_label)
-            if not cap_struct[i]:
+            if len(cap_struct[i]) > 1:
+                cap_struct[i].remove(security_label)
+            else:
                 del cap_struct.lifo[i]
             del cap_struct.optional_conversion_ratios[security_label]
         else:

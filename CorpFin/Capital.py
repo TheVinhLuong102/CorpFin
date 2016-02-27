@@ -1,6 +1,7 @@
 from __future__ import absolute_import, print_function
 from copy import deepcopy
 from namedlist import namedlist
+from pandas import DataFrame
 from sympy import Min, Symbol
 from HelpyFuncs.SymPy import sympy_theanify
 from .Security import Security
@@ -11,7 +12,7 @@ def parse_n_security_option(n_security_option_tuple):
         if len(n_security_option_tuple) == 3:
             return n_security_option_tuple
         elif len(n_security_option_tuple) == 2:
-            if isinstance(n_security_option_tuple[0], int):
+            if isinstance(n_security_option_tuple[0], (int, float)):
                 return tuple(n_security_option_tuple) + (None,)
             elif isinstance(n_security_option_tuple[0], (str, Security)):
                 return (1,) + tuple(n_security_option_tuple)
@@ -64,7 +65,7 @@ class CapitalStructure:
             cap_struct.waterfall()
             return cap_struct
 
-    def issue(self, n_security_option_tuple='', liquidation_order=0, insert=True, inplace=True, deep=True):
+    def issue(self, n_security_option_tuple='', liq_priority=None, insert=False, inplace=True, deep=True):
         if inplace:
             cap_struct = self
         else:
@@ -78,12 +79,12 @@ class CapitalStructure:
             security_label = security.label
             n_security_factory = namedlist('N_Security', ['n', 'security'])
             cap_struct.outstanding[security_label] = n_security_factory(n=n, security=security)
-            if insert:
-                cap_struct.lifo.insert(liquidation_order, [security_label])
-            elif liquidation_order >= len(cap_struct):
+            if (liq_priority is None) or (liq_priority >= len(cap_struct)):
                 cap_struct.lifo.append([security_label])
+            elif insert:
+                cap_struct.lifo.insert(liq_priority, [security_label])
             else:
-                cap_struct.lifo[liquidation_order].append(security_label)
+                cap_struct.lifo[liq_priority].append(security_label)
             cap_struct.optional_conversion_ratios[security_label] = optional_common_share_conversion_ratio
 
         cap_struct.waterfall()
@@ -115,7 +116,7 @@ class CapitalStructure:
         if not inplace:
             return cap_struct
 
-    def exercise(self, security_label='', n=None, inplace=True, deep=True):
+    def convert_to_common(self, security_label='', n=None, inplace=True, deep=True):
         if inplace:
             cap_struct = self
         else:
@@ -137,9 +138,9 @@ class CapitalStructure:
 
     def waterfall(self):
         v = Symbol('enterprise_val')
-        for liquidation_order_high_to_low in reversed(range(len(self))):
-            security_labels = self[liquidation_order_high_to_low]
-            if liquidation_order_high_to_low:
+        for liq_priority_high_to_low in reversed(range(len(self))):
+            security_labels = self[liq_priority_high_to_low]
+            if liq_priority_high_to_low:
                 total_claim_val_this_round = \
                     reduce(
                         lambda x, y: x + y,
@@ -153,7 +154,7 @@ class CapitalStructure:
                     security.val = sympy_theanify(security.val_expr)
                 v -= claimable
             else:
-                n, common_share = self[0]
+                n, common_share = self[security_labels[0]]
                 common_share.val_expr = v / n
                 common_share.val = sympy_theanify(common_share.val_expr)
 
@@ -162,16 +163,12 @@ class CapitalStructure:
                 for security_label in self}
 
     def __call__(self, **kwargs):
+        df = DataFrame(columns=['liq. priority (0=lowest)', 'outstanding', 'val / unit', 'conversion ratio'])
         for i in range(len(self)):
-            if i:
-                claim_priority = str(i)
-            else:
-                claim_priority = '0, i.e. lowest'
             security_labels = self[i]
             for security_label in security_labels:
                 n, security = self[security_label]
                 optional_conversion_ratio = self.optional_conversion_ratios.get(security_label)
-                if optional_conversion_ratio:
-                    optional_conversion_ratio_str = ', convertible 1 unit = %.3f common(s)'
-                print('%s x' % '{:,}'.format(n), security_label.upper(), '(priority %s): ' % claim_priority,
-                      optional_conversion_ratio_str)
+                df.loc[security_label] = i, n, security.val(**kwargs), optional_conversion_ratio
+        df['liq. priority (0=lowest)'] = df['liq. priority (0=lowest)'].astype(int)
+        return df

@@ -10,6 +10,6 @@ setup(name='CorpFin',
       description='Corporate Finance functionalities based on SymPy and Theano',
       long_description='(please read README.md on GitHub)',
       license='MIT License',
-      install_requires=['NumPy', 'Pandas', 'SymPy', 'Theano'],
+      install_requires=['namedlist', 'NumPy', 'Pandas', 'SymPy', 'Theano'],
       classifiers=[],   # https://pypi.python.org/pypi?%3Aaction=list_classifiers
       keywords='corporate finance corp fin financial sympy theano')

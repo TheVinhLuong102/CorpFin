@@ -378,6 +378,18 @@ class ValuationModel:
                 self.venture_name_prefix +
                 'ProFormaPeriodBeta')
 
+        self.ProFormaPeriodAssetDiscountRate___input = \
+            Symbol(
+                self.venture_name_prefix +
+                'ProFormaPeriodAssetDiscountRate')
+
+        self.ProFormaPeriodAssetDiscountRate = \
+            Piecewise(
+                (self.RiskFreeRate___input + self.ProFormaPeriodBeta___input * self.PublicMarketPremium,
+                 Eq(self.ProFormaPeriodAssetDiscountRate___input, 0.)),
+                (self.ProFormaPeriodAssetDiscountRate___input,
+                 True))
+
         self.ProFormaPeriodDiscountRate___input = \
             Symbol(
                 self.venture_name_prefix +
@@ -385,8 +397,7 @@ class ValuationModel:
 
         self.ProFormaPeriodDiscountRate = \
             Piecewise(
-                (self.RiskFreeRate___input + self.InvestmentManagerFeePremium___input +
-                     self.ProFormaPeriodBeta___input * self.PublicMarketPremium,
+                (self.ProFormaPeriodAssetDiscountRate + self.InvestmentManagerFeePremium___input,
                  Eq(self.ProFormaPeriodDiscountRate___input, 0.)),
                 (self.ProFormaPeriodDiscountRate___input,
                  True))
@@ -438,19 +449,174 @@ class ValuationModel:
                 (self.TV / self.EBIT[-1], self.EBIT[-1] > 0),
                 (0., True))
 
-        # model Valuation
+        # model Unlevered Valuation
+        FCF = [0.] + self.FCF[1:]
         self.Val_of_FCF = \
-            net_present_value(
-                cash_flows=[0.] + self.FCF[1:],
+            [net_present_value(
+                cash_flows=FCF[i:],
                 discount_rate=self.ProFormaPeriodDiscountRate)
+             for i in index_range]
 
         self.Val_of_TV = \
-            present_value(
+            [present_value(
                 amount=self.TV,
                 discount_rate=self.StabilizedDiscountRate,
-                nb_periods=nb_pro_forma_years_excl_0)
+                nb_periods=nb_pro_forma_years_excl_0 - i)
+             for i in index_range]
 
-        self.Val = self.Val_of_FCF + self.Val_of_TV
+        self.Unlev_Val = \
+            [self.Val_of_FCF[i] + self.Val_of_TV[i]
+             for i in index_range]
+
+        # model Debt-to-Equity ("D / E") Ratios
+        self.DERatio___input = \
+            Symbol(
+                self.venture_name_prefix +
+                'DERatio')
+
+        self.ProFormaPeriodDERatio___input = \
+            Symbol(
+                self.venture_name_prefix +
+                'ProFormaPeriodDERatio')
+
+        pro_forma_period_d_e_ratio = \
+            Piecewise(
+                (self.DERatio___input,
+                 Eq(self.ProFormaPeriodAssetDiscountRate___input, 0.)),
+                (self.ProFormaPeriodAssetDiscountRate___input,
+                 True))
+
+        self.DERatios = \
+            nb_pro_forma_years_excl_0 * [pro_forma_period_d_e_ratio] + [self.DERatio___input]
+
+        # model Debt
+        self.Debt___input = \
+            symbols(
+                self.venture_name_prefix +
+                'Debt___%d:%d' % (year_0, self.final_pro_forma_year + 1))
+
+        self.Debt = \
+            [Piecewise(
+                ((1. - 1. / (1. + self.DERatios[i])) * self.Unlev_Val[i],
+                 Eq(self.Debt___input[i], 0.)),
+                (self.Debt___input[i],
+                 True))
+             for i in index_range]
+
+        # model Interest Rates
+        self.InterestRate___input = \
+            Symbol(
+                self.venture_name_prefix +
+                'InterestRate')
+
+        self.ProFormaPeriodInterestRate___input = \
+            Symbol(
+                self.venture_name_prefix +
+                'ProFormaPeriodInterestRate')
+
+        pro_forma_period_interest_rate = \
+            Piecewise(
+                (self.InterestRate___input,
+                 Eq(self.ProFormaPeriodInterestRate___input, 0.)),
+                (self.ProFormaPeriodInterestRate___input,
+                 True))
+
+        self.InterestRates = \
+            nb_pro_forma_years_excl_0 * [pro_forma_period_interest_rate] + [self.InterestRate___input]
+
+        self.InterestRates___input = \
+            symbols(
+                self.venture_name_prefix +
+                'InterestRates___%d:%d' % (year_0, self.final_pro_forma_year + 1))
+
+        self.InterestRates = \
+            [Piecewise(
+                (self.InterestRates[i],
+                 Eq(self.InterestRates___input[i], 0.)),
+                (self.InterestRates___input[i],
+                 True))
+             for i in index_range]
+
+        # model Interest Expense & InterestTaxShield
+        self.InterestExpense___input = \
+            symbols(
+                self.venture_name_prefix +
+                'InterestExpense___%d:%d' % (year_0, self.final_pro_forma_year + 1))
+
+        self.InterestExpense = \
+            [Piecewise(
+                (self.InterestRates[i] * self.Debt[i],
+                 Eq(self.InterestExpense___input[i], 0.)),
+                (self.InterestExpense___input[i],
+                 True))
+             for i in index_range]
+
+        self.ITS = \
+            map(lambda x: self.CorpTaxRate___input * x,
+                self.InterestExpense)
+
+        # model Interest Tax Shield (ITS) Discount Rate
+        self.DebtBeta___input = \
+            Symbol(
+                self.venture_name_prefix +
+                'DebtBeta')
+
+        self.DebtDiscountRate___input = \
+            Symbol(
+                self.venture_name_prefix +
+                'DebtDiscountRate')
+
+        self.DebtDiscountRate = \
+            Piecewise(
+                (Piecewise(
+                    (0.,
+                     Eq(self.DebtBeta___input, 0.)),
+                    (self.RiskFreeRate___input + self.DebtBeta___input * self.PublicMarketPremium,
+                     True)),
+                 Eq(self.DebtDiscountRate___input, 0.)),
+                (self.DebtDiscountRate___input,
+                 True))
+
+        self.ProFormaPeriodITSDiscountRate = \
+            Piecewise(
+                (self.ProFormaPeriodAssetDiscountRate,
+                 Eq(self.DebtDiscountRate, 0.)),
+                (self.DebtDiscountRate,
+                 True))
+
+        self.StabilizedITSDiscountRate = \
+            Piecewise(
+                (self.StabilizedDiscountRate,
+                 Eq(self.DebtDiscountRate, 0.)),
+                (self.DebtDiscountRate,
+                 True))
+
+        # model Terminal Value of Interest Tax Shield
+        self.ITS_TV = \
+            terminal_value(
+                terminal_cash_flow=self.ITS[-1],
+                long_term_discount_rate=self.StabilizedITSDiscountRate,
+                long_term_growth_rate=0.)
+
+        # model Valuation of Interest Tax Shield
+        ITS = [0.] + self.ITS[1:]
+        self.Val_of_ITS = \
+            [net_present_value(
+                cash_flows=ITS[i:],
+                discount_rate=self.ProFormaPeriodITSDiscountRate)
+             for i in index_range]
+
+        self.Val_of_ITS_TV = \
+            [present_value(
+                amount=self.ITS_TV,
+                discount_rate=self.StabilizedITSDiscountRate,
+                nb_periods=nb_pro_forma_years_excl_0 - i)
+             for i in index_range]
+
+        # model Valuation
+        self.Val = \
+            [self.Unlev_Val[i] + self.Val_of_ITS[i] + self.Val_of_ITS_TV[i]
+             for i in index_range]
 
         # list all Input attributes & symbols
         self.input_attrs = \
@@ -465,10 +631,14 @@ class ValuationModel:
              'NWCChange',
              'NWCChange_over_Revenue', 'NWCChange_over_RevenueChange',
              'RiskFreeRate', 'PublicMarketReturn', 'PublicMarketPremium', 'InvestmentManagerFeePremium',
-             'ProFormaPeriodBeta', 'ProFormaPeriodDiscountRate',
+             'ProFormaPeriodBeta', 'ProFormaPeriodAssetDiscountRate', 'ProFormaPeriodDiscountRate',
              'StabilizedBeta', 'StabilizedDiscountRate',
              'LongTermGrowthRate',
-             'TV_RevenueMultiple']
+             'TV_RevenueMultiple',
+             'DERatio', 'ProFormaPeriodDERatio', 'Debt',
+             'InterestRate', 'ProFormaPeriodInterestRate', 'InterestRates'
+             'InterestExpense',
+             'DebtBeta', 'DebtDiscountRate']
 
         # gather all Input symbols and set their default values
         self.input_symbols = []
@@ -490,7 +660,8 @@ class ValuationModel:
 
         # list all Output attributes
         self.output_attrs = \
-            ['PublicMarketPremium', 'ProFormaPeriodDiscountRate', 'StabilizedDiscountRate',
+            ['PublicMarketPremium',
+             'ProFormaPeriodAssetDiscountRate', 'ProFormaPeriodDiscountRate', 'StabilizedDiscountRate',
              'Revenue', 'RevenueChange', 'RevenueGrowth',
              'OpEx', 'OpEx_over_Revenue', 'OpExGrowth',
              'EBIT', 'EBITMargin', 'EBITGrowth',
@@ -503,7 +674,13 @@ class ValuationModel:
              'NWCChange_over_RevenueChange',
              'FCF',
              'TV', 'TV_RevenueMultiple', 'TV_EBITMultiple',
-             'Val_of_FCF', 'Val_of_TV', 'Val']
+             'Val_of_FCF', 'Val_of_TV', 'Unlev_Val',
+             'DERatios', 'Debt',
+             'InterestRates',
+             'InterestExpense', 'ITS',
+             'ProFormaPeriodITSDiscountRate', 'StabilizedITSDiscountRate',
+             'ITS_TV',
+             'Val_of_ITS', 'Val_of_ITS_TV', 'Val']
 
         # compile Outputs if so required
         if compile:
@@ -564,7 +741,7 @@ class ValuationModel:
                     df[output] = result
                 else:
                     df[output] = ''
-                    if output in ('TV', 'TV_RevenueMultiple', 'TV_EBITMultiple'):
+                    if output in ('TV', 'TV_RevenueMultiple', 'TV_EBITMultiple', 'ITS_TV'):
                         df.loc[self.final_pro_forma_year, output] = result
                     else:
                         df.loc['Year 0', output] = result

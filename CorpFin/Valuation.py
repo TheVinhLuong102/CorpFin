@@ -636,7 +636,7 @@ class ValuationModel:
              'LongTermGrowthRate',
              'TV_RevenueMultiple',
              'DERatio', 'ProFormaPeriodDERatio', 'Debt',
-             'InterestRate', 'ProFormaPeriodInterestRate', 'InterestRates'
+             'InterestRate', 'ProFormaPeriodInterestRate', 'InterestRates',
              'InterestExpense',
              'DebtBeta', 'DebtDiscountRate']
 

@@ -720,8 +720,11 @@ class ValuationModel:
                 toc = datetime.now()
                 print('done after %s (%s so far)' % (format_time_delta(toc - tic), format_time_delta(toc - tic_0)))
             print('done after %s' % format_time_delta(toc - tic_0))
+
             self.compiled = True
+
         else:
+
             self.compiled = False
 
     def __call__(self, outputs=None, **kwargs):

@@ -1,4 +1,5 @@
 from __future__ import absolute_import, division, print_function
+from datetime import datetime
 from numpy import nan, isnan
 from pandas import DataFrame
 from sympy import Eq, Expr, Piecewise, Symbol, symbols
@@ -694,10 +695,17 @@ class ValuationModel:
 
         # compile Outputs if so required
         if compile:
+
+            def format_time_delta(time_delta):
+                time_delta_str = str(time_delta)
+                return time_delta_str[:time_delta_str.index('.')]
+
             print('Compiling:')
+            tic_0 = datetime.now()
             for output in self.output_attrs:
-                print('    %s' % output)
+                print('    %s... ' % output, end='')
                 a = getattr(self, output)
+                tic = datetime.now()
                 if isinstance(a, (list, tuple)):
                     if (not isinstance(a[0], Expr)) and isnan(a[0]):
                         setattr(
@@ -709,7 +717,9 @@ class ValuationModel:
                             [theano_function(self.input_symbols, [a[i]]) for i in index_range])
                 else:
                     setattr(self, output, theano_function(self.input_symbols, [a]))
-            print('done!')
+                toc = datetime.now()
+                print('done after %s (%s so far)' % (format_time_delta(toc - tic), format_time_delta(toc - tic_0)))
+            print('done after %s' % format_time_delta(toc - tic_0))
             self.compiled = True
         else:
             self.compiled = False

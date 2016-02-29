@@ -414,7 +414,11 @@ class ValuationModel:
 
         self.StabilizedDiscountRate = \
             Piecewise(
-                (self.RiskFreeRate___input + self.StabilizedBeta___input * self.PublicMarketPremium,
+                (Piecewise(
+                    (self.ProFormaPeriodDiscountRate,
+                     Eq(self.StabilizedBeta___input, 0.)),
+                    (self.RiskFreeRate___input + self.StabilizedBeta___input * self.PublicMarketPremium,
+                     True)),
                  Eq(self.StabilizedDiscountRate___input, 0.)),
                 (self.StabilizedDiscountRate___input,
                  True))

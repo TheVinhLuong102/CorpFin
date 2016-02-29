@@ -569,7 +569,8 @@ class ValuationModel:
         self.DebtDiscountRate = \
             Piecewise(
                 (Piecewise(
-                    (0.,
+                    (self.DebtBeta___input + self.DebtDiscountRate___input,
+                        # use this expression because '0.' throws SymPy / Theano bug
                      Eq(self.DebtBeta___input, 0.)),
                     (self.RiskFreeRate___input + self.DebtBeta___input * self.PublicMarketPremium,
                      True)),

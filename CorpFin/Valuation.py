@@ -614,9 +614,13 @@ class ValuationModel:
                 nb_periods=nb_pro_forma_years_excl_0 - i)
              for i in index_range]
 
+        self.Val_of_ITS_incl_TV = \
+            [self.Val_of_ITS[i] + self.Val_of_ITS_TV[i]
+             for i in index_range]
+
         # model Valuation
         self.Val = \
-            [self.Unlev_Val[i] + self.Val_of_ITS[i] + self.Val_of_ITS_TV[i]
+            [self.Unlev_Val[i] + self.Val_of_ITS_incl_TV[i]
              for i in index_range]
 
         # list all Input attributes & symbols
@@ -675,13 +679,14 @@ class ValuationModel:
              'NWCChange_over_RevenueChange',
              'FCF',
              'TV', 'TV_RevenueMultiple', 'TV_EBITMultiple',
-             'Val_of_FCF', 'Val_of_TV', 'Unlev_Val',
+             'Unlev_Val',   # skipping Val_of_FCF & Val_of_TV to save compilation time
              'DERatios', 'Debt',
              'InterestRates',
              'InterestExpense', 'ITS',
              'ProFormaPeriodITSDiscountRate', 'StabilizedITSDiscountRate',
              'ITS_TV',
-             'Val_of_ITS', 'Val_of_ITS_TV', 'Val']
+             'Val_of_ITS_incl_TV',   # skipping Val_of_ITS & Val_of_ITS_TV to save compilation time
+             'Val']
 
         # compile Outputs if so required
         if compile:

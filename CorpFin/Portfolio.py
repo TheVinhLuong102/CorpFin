@@ -18,9 +18,6 @@ class Portfolio:
             [n_asset(n=x[0], asset=x[1]) if isinstance(x, (list, tuple))
              else n_asset(n=1, asset=x)
              for x in n_assets]
-        self.label_repr = \
-            [n_asset(n=x.n, asset=x.asset.label)
-             for x in self.c]
 
     def val(self, **kwargs):
         return reduce(lambda x, y: x + y, map(lambda x: x.n * val(x.asset, **kwargs), self.c))

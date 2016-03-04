@@ -1,8 +1,9 @@
 from __future__ import absolute_import, print_function
 from copy import deepcopy
+from frozendict import frozendict
 from namedlist import namedlist
 from pandas import DataFrame
-from sympy import Min, Symbol
+from sympy import Min, Piecewise, Symbol
 from HelpyFuncs.SymPy import sympy_theanify
 from .Security import Security
 
@@ -29,8 +30,10 @@ class CapitalStructure:
         self.lifo = []
         self.optional_conversion_ratios = {}
         n_security_factory = namedlist('N_Security', ['n', 'security'])
-        for n_security_option in n_security_option_tuples:
-            n, security, optional_common_share_conversion_ratio = parse_n_security_option(n_security_option)
+        for i in range(len(n_security_option_tuples)):
+            n, security, optional_common_share_conversion_ratio = parse_n_security_option(n_security_option_tuples[i])
+            if not i:
+                self.common_share_label = security.label
             self.outstanding[security.label] = n_security_factory(n=n, security=security)
             self.lifo.append([security.label])
             if optional_common_share_conversion_ratio:
@@ -49,7 +52,7 @@ class CapitalStructure:
             return self.lifo[item]
 
     def __iter__(self):
-        return self.lifo
+        return iter(self.lifo)
 
     def __len__(self):
         return len(self.lifo)
@@ -64,6 +67,47 @@ class CapitalStructure:
             cap_struct.optional_conversion_ratios = self.optional_conversion_ratios.copy()
             cap_struct.waterfall()
             return cap_struct
+
+    def show(self):
+        df = DataFrame(columns=['liq. priority (0=lowest)', 'outstanding', 'conversion ratio'])
+        for i in range(len(self)):
+            security_labels = self[i]
+            for security_label in security_labels:
+                n, security = self[security_label]
+                optional_conversion_ratio = self.optional_conversion_ratios.get(security_label)
+                df.loc[security_label] = i, n, optional_conversion_ratio
+        df['liq. priority (0=lowest)'] = df['liq. priority (0=lowest)'].astype(int)
+        return df
+
+    def __repr__(self):
+        return str(self.show())
+
+    def waterfall(self):
+        v = Symbol('enterprise_val')
+        for liq_priority_high_to_low in reversed(range(len(self))):
+            security_labels = self[liq_priority_high_to_low]
+            if liq_priority_high_to_low:
+                total_claim_val_this_round = \
+                    reduce(
+                            lambda x, y: x + y,
+                            map(lambda x: x.n * x.security.claim_val_expr,
+                                map(lambda x: self[x],
+                                    security_labels)))
+                claimable = Min(total_claim_val_this_round, v)
+                for security_label in security_labels:
+                    n, security = self[security_label]
+                    security.val_expr = \
+                        Piecewise(
+                            ((claimable / total_claim_val_this_round) * security.claim_val_expr,
+                             total_claim_val_this_round > 0),
+                            (total_claim_val_this_round,
+                             True))
+                    security.val = sympy_theanify(security.val_expr)
+                v -= claimable
+            else:
+                n, common_share = self[security_labels[0]]
+                common_share.val_expr = v / n
+                common_share.val = sympy_theanify(common_share.val_expr)
 
     def issue(self, n_security_option_tuple='', liq_priority=None, insert=False, inplace=True, deep=True):
         if inplace:
@@ -85,7 +129,8 @@ class CapitalStructure:
                 cap_struct.lifo.insert(liq_priority, [security_label])
             else:
                 cap_struct.lifo[liq_priority].append(security_label)
-            cap_struct.optional_conversion_ratios[security_label] = optional_common_share_conversion_ratio
+            if optional_common_share_conversion_ratio:
+                cap_struct.optional_conversion_ratios[security_label] = optional_common_share_conversion_ratio
 
         cap_struct.waterfall()
 
@@ -139,39 +184,63 @@ class CapitalStructure:
         if not inplace:
             return cap_struct
 
-    def waterfall(self):
-        v = Symbol('enterprise_val')
-        for liq_priority_high_to_low in reversed(range(len(self))):
-            security_labels = self[liq_priority_high_to_low]
-            if liq_priority_high_to_low:
-                total_claim_val_this_round = \
-                    reduce(
-                        lambda x, y: x + y,
-                        map(lambda x: x.n * x.security.claim_val_expr,
-                            map(lambda x: self[x],
-                                security_labels)))
-                claimable = Min(total_claim_val_this_round, v)
-                for security_label in security_labels:
-                    n, security = self[security_label]
-                    security.val_expr = (claimable / total_claim_val_this_round) * security.claim_val_expr
-                    security.val = sympy_theanify(security.val_expr)
-                v -= claimable
-            else:
-                n, common_share = self[security_labels[0]]
-                common_share.val_expr = v / n
-                common_share.val = sympy_theanify(common_share.val_expr)
+    def conversion_scenarios(self, securities_tried={}, securities_to_try=None):
+        if securities_to_try is None:
+            securities_to_try = set(self.optional_conversion_ratios)
+        else:
+            securities_to_try &= set(self.optional_conversion_ratios)
+        if securities_to_try:
+            security_label = securities_to_try.pop()
+            securities_tried_0 = securities_tried.copy()
+            securities_tried_0[security_label] = False
+            d = self.conversion_scenarios(
+                securities_tried=securities_tried_0,
+                securities_to_try=securities_to_try.copy())
+            securities_tried_1 = securities_tried.copy()
+            securities_tried_1[security_label] = True
+            d.update(
+                self.convert_to_common(
+                    security_label=security_label,
+                    inplace=False)
+                .conversion_scenarios(
+                    securities_tried=securities_tried_1,
+                    securities_to_try=securities_to_try.copy()))
+            return d
+        else:
+            return {frozendict(securities_tried): self.copy()}
 
-    def val(self, **kwargs):
-        return {security_label: self[security_label].security.val(**kwargs)
-                for security_label in self}
+    def val(self, convert_in_money=True, **kwargs):
+        if self.optional_conversion_ratios and convert_in_money:
+            conversion_scenario_vals = \
+                {conversion_scenario: cap_struct.val(convert_in_money=False, **kwargs)['vals']
+                 for conversion_scenario, cap_struct in self.conversion_scenarios().items()}
+            for conversion_scenario, vals in conversion_scenario_vals.items():
+                for security_label, converted in conversion_scenario.items():
+                    if converted:
+                        vals[security_label] = \
+                            self.optional_conversion_ratios[security_label] * vals[self.common_share_label]
+            for conversion_scenario, vals in conversion_scenario_vals.items():
+                pareto = True
+                for security_label, converted in conversion_scenario.items():
+                    alternative_conversion_scenario = dict(conversion_scenario)
+                    alternative_conversion_scenario[security_label] = \
+                        not alternative_conversion_scenario [security_label]
+                    pareto &= \
+                        (vals[security_label] >=
+                         conversion_scenario_vals[frozendict(alternative_conversion_scenario)][security_label])
+                if pareto:
+                    return dict(conversion_scenario=conversion_scenario, vals=vals)
+        else:
+            return dict(
+                conversion_scenario=dict.fromkeys(self.optional_conversion_ratios.keys(), False),
+                vals={security_label: float(self[security_label].security.val(**kwargs))
+                      for security_label in self.outstanding})
 
-    def __call__(self, **kwargs):
-        df = DataFrame(columns=['liq. priority (0=lowest)', 'outstanding', 'val / unit', 'conversion ratio'])
-        for i in range(len(self)):
-            security_labels = self[i]
-            for security_label in security_labels:
-                n, security = self[security_label]
-                optional_conversion_ratio = self.optional_conversion_ratios.get(security_label)
-                df.loc[security_label] = i, n, security.val(**kwargs), optional_conversion_ratio
-        df['liq. priority (0=lowest)'] = df['liq. priority (0=lowest)'].astype(int)
+    def __call__(self, convert_in_money=True, **kwargs):
+        df = self.show()
+        val_results = self.val(convert_in_money=convert_in_money, **kwargs)
+        df['converted'] = [val_results['conversion_scenario'].get(security_label) for security_label in df.index]
+        df['val / unit'] = [val_results['vals'][security_label] for security_label in df.index]
+        df['val'] = df.outstanding * df['val / unit']
+        df.loc['TOTAL'] = 5 * [''] + [df.val.sum()]
         return df

@@ -1,8 +1,8 @@
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 from copy import copy, deepcopy
 from frozendict import frozendict
 from namedlist import namedlist
-from numpy import allclose
+from numpy import allclose, float64, nan
 from pandas import DataFrame
 from sympy import Min, Piecewise, Symbol
 from HelpyFuncs.SymPy import sympy_theanify
@@ -89,7 +89,13 @@ class CapitalStructure:
 
     def show(self, ownerships=False):
         if ownerships:
-            return self.ownerships
+            df = DataFrame(columns=['Owner', 'Security', 'Quantity'])
+            i = 0
+            for owner, holdings in self.ownerships.items():
+                for security_label, quantity in holdings.items():
+                    df.loc[i] = owner, security_label, quantity
+                    i += 1
+            df.Quantity = df.Quantity.astype(float)
         else:
             df = DataFrame(columns=['Liquidation Order (LIFO)', 'Outstanding', 'Conversion Ratio'])
             for i in range(len(self)):
@@ -99,7 +105,7 @@ class CapitalStructure:
                     optional_conversion_ratio = self.optional_conversion_ratios.get(security_label)
                     df.loc[security_label] = i, n, optional_conversion_ratio
             df['Liquidation Order (LIFO)'] = df['Liquidation Order (LIFO)'].astype(int)
-            return df
+        return df
 
     def __repr__(self):
         return str(self.show())
@@ -381,7 +387,7 @@ class CapitalStructure:
                         conversion_scenario[owner] = {security_label: False}
 
             security_vals = \
-                {security_label: float(self[security_label].security.val(**kwargs))
+                {security_label: float64(self[security_label].security.val(**kwargs))
                  for security_label in self.outstanding}
 
             ownership_vals = {}
@@ -398,16 +404,30 @@ class CapitalStructure:
                 security_vals=security_vals,
                 ownership_vals=ownership_vals)
 
-    def __call__(self, convert_in_money=True, ownerships=False, **kwargs):
-        val_results = self.val(pareto_equil_conversions=convert_in_money, **kwargs)
+    def __call__(self, pareto_equil_conversions=True, ownerships=False, **kwargs):
+        val_results = self.val(pareto_equil_conversions=pareto_equil_conversions, **kwargs)
+        capital_structure = val_results['capital_structure']
+        security_vals = val_results['security_vals']
         if ownerships:
-            return self.val(pareto_equil_conversions=True, **kwargs)
+            df = DataFrame(columns=['Owner', 'Security', 'Val', 'Share'])
+            common_share_val = self[self.common_share_label].n * security_vals[self.common_share_label]
+            i = 0
+            for owner, holdings in self.ownerships.items():
+                for security_label, quantity in holdings.items():
+                    security_val = quantity * security_vals[security_label]
+                    if security_label == self.common_share_label:
+                        share_in_common = security_val / common_share_val
+                    else:
+                        share_in_common = nan
+                    df.loc[i] = owner, security_label, security_val, share_in_common
+                    i += 1
+            df.loc['TOTAL'] = 2 * ('',) + (df.Val.sum(), df.Share.sum())
         else:
-            df = val_results['capital_structure'].show()
-            df['Val / Unit'] = [val_results['security_vals'][security_label] for security_label in df.index]
+            df = capital_structure.show()
+            df['Val / Unit'] = [security_vals[security_label] for security_label in df.index]
             df['Val'] = df.Outstanding * df['Val / Unit']
             df.loc['TOTAL'] = 4 * [''] + [df.Val.sum()]
-            return df
+        return df
 
     def parse_owners_securities_holdings(self, owners=None, securities=None):
 

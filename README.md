@@ -1,2 +1,3 @@
-# FinSymPy
-Financial functions based on SymPy
+# CorpFin
+
+Corporate Finance functionalities built on `SymPy` and `Theano`.

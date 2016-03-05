@@ -1,5 +1,5 @@
 from __future__ import absolute_import, print_function
-from copy import deepcopy
+from copy import copy, deepcopy
 from frozendict import frozendict
 from namedlist import namedlist
 from pandas import DataFrame
@@ -8,39 +8,56 @@ from HelpyFuncs.SymPy import sympy_theanify
 from .Security import Security
 
 
-def parse_n_security_option(n_security_option_tuple):
-    if isinstance(n_security_option_tuple, (list, tuple)):
-        if len(n_security_option_tuple) == 3:
-            return n_security_option_tuple
-        elif len(n_security_option_tuple) == 2:
-            if isinstance(n_security_option_tuple[0], (int, float)):
-                return tuple(n_security_option_tuple) + (None,)
-            elif isinstance(n_security_option_tuple[0], (str, Security)):
-                return (1,) + tuple(n_security_option_tuple)
-        elif len(n_security_option_tuple) == 1:
-            security, = n_security_option_tuple
-            return 1, security, None
-    else:
-        return 1, n_security_option_tuple, None
+def parse_security_info_set(security_info_set):
+    if isinstance(security_info_set, dict):
+        return security_info_set
+    elif isinstance(security_info_set, (list, tuple)):
+        if len(security_info_set) == 2:
+            if isinstance(security_info_set[0], Security) and isinstance(security_info_set[1], (int, float)):
+                return security_info_set
+            elif isinstance(security_info_set[0], str) and isinstance(security_info_set[1], (int, float)):
+                return {security_info_set[0]: security_info_set[1]}
+            elif isinstance(security_info_set[0], (int, float)) and isinstance(security_info_set[1], str):
+                return {security_info_set[1]: security_info_set[0]}
+        elif len(security_info_set) == 1:
+            return parse_security_info_set(security_info_set[0])
+    elif isinstance(security_info_set, str):
+        return {security_info_set: 1}
+    elif isinstance(security_info_set, Security):
+        return security_info_set, None
+
+
+def parse_security_info_sets(security_info_sets):
+    if isinstance(security_info_sets, dict):
+        return security_info_sets
+    elif isinstance(security_info_sets, (list, tuple)):
+        s = parse_security_info_set(security_info_sets[0])
+        if isinstance(s, dict):
+            for security_info_set in security_info_sets[1:]:
+                s.update(parse_security_info_set(security_info_set))
+        elif isinstance(s, (list, tuple)):
+            s = [s]
+            for security_info_set in security_info_sets[1:]:
+                s.append(parse_security_info_set(security_info_set))
+        return s
+    elif isinstance(security_info_sets, str):
+        return {security_info_sets: 1}
+    elif isinstance(security_info_sets, Security):
+        return (security_info_sets, None),
+
+
+n_security_factory = namedlist('N_Security', ['n', 'security'])
 
 
 class CapitalStructure:
-    def __init__(self, *n_security_option_tuples):
+    def __init__(self, *securities_and_optional_conversion_ratios):
         self.outstanding = {}
-        self.lifo = []
+        self.lifo_liquidation_order = []
         self.optional_conversion_ratios = {}
-        n_security_factory = namedlist('N_Security', ['n', 'security'])
-        for i in range(len(n_security_option_tuples)):
-            n, security, optional_common_share_conversion_ratio = parse_n_security_option(n_security_option_tuples[i])
-            if not i:
-                self.common_share_label = security.label
-            self.outstanding[security.label] = n_security_factory(n=n, security=security)
-            self.lifo.append([security.label])
-            if optional_common_share_conversion_ratio:
-                self.optional_conversion_ratios[security.label] = optional_common_share_conversion_ratio
-
-        # calculate & compile Waterfall structure
-        self.waterfall()
+        self.ownerships = {}
+        for securities_and_optional_conversion_ratio in securities_and_optional_conversion_ratios:
+            self.create_securities(securities_and_optional_conversion_ratio)
+        self.common_share_label = self[0][0]
 
     def __contains__(self, item):
         return item in self.outstanding
@@ -49,50 +66,81 @@ class CapitalStructure:
         if isinstance(item, str):
             return self.outstanding[item]
         elif isinstance(item, int):
-            return self.lifo[item]
+            return self.lifo_liquidation_order[item]
 
     def __iter__(self):
-        return iter(self.lifo)
+        return iter(self.lifo_liquidation_order)
 
     def __len__(self):
-        return len(self.lifo)
+        return len(self.lifo_liquidation_order)
 
     def copy(self, deep=True):
-        if deep:
+        if deep:   # to deep-copy; this is the safest option
             return deepcopy(self)
-        else:
-            cap_struct = CapitalStructure()
-            cap_struct.outstanding = self.outstanding.copy()
-            cap_struct.lifo = deepcopy(self.lifo)
-            cap_struct.optional_conversion_ratios = self.optional_conversion_ratios.copy()
-            cap_struct.waterfall()
-            return cap_struct
+        else:   # to shallow-copy; NOTE: this can be unclear & unsafe
+            capital_structure = CapitalStructure()
+            capital_structure.outstanding = self.outstanding.copy()
+            capital_structure.lifo_liquidation_order = copy(self.lifo_liquidation_order)
+            capital_structure.optional_conversion_ratios = self.optional_conversion_ratios.copy()
+            capital_structure.ownerships = self.ownerships.copy()
+            capital_structure.waterfall()
+            return capital_structure
 
-    def show(self):
-        df = DataFrame(columns=['liq. priority (0=lowest)', 'outstanding', 'conversion ratio'])
-        for i in range(len(self)):
-            security_labels = self[i]
-            for security_label in security_labels:
-                n, security = self[security_label]
-                optional_conversion_ratio = self.optional_conversion_ratios.get(security_label)
-                df.loc[security_label] = i, n, optional_conversion_ratio
-        df['liq. priority (0=lowest)'] = df['liq. priority (0=lowest)'].astype(int)
-        return df
+    def show(self, ownerships=False):
+        if ownerships:
+            return self.ownerships
+        else:
+            df = DataFrame(columns=['Liquidation Order (LIFO)', 'Outstanding', 'Conversion Ratio'])
+            for i in range(len(self)):
+                security_labels = self[i]
+                for security_label in security_labels:
+                    n, security = self[security_label]
+                    optional_conversion_ratio = self.optional_conversion_ratios.get(security_label)
+                    df.loc[security_label] = i, n, optional_conversion_ratio
+            df['Liquidation Order (LIFO)'] = df['Liquidation Order (LIFO)'].astype(int)
+            return df
 
     def __repr__(self):
         return str(self.show())
 
+    def create_securities(self, securities, liquidation_order=None, insert=False, inplace=True, deep=True):
+        if inplace:
+            capital_structure = self
+        else:
+            capital_structure = self.copy(deep=deep)
+
+        securities_and_optional_common_share_conversion_ratios = parse_security_info_sets(securities)
+        if len(securities_and_optional_common_share_conversion_ratios) > 1:
+            liquidation_order = None
+
+        for security, optional_common_share_conversion_ratio in securities_and_optional_common_share_conversion_ratios:
+
+            capital_structure.outstanding[security.label] = n_security_factory(n=0, security=security)
+
+            if (liquidation_order is None) or liquidation_order >= len(self):
+                capital_structure.lifo_liquidation_order.append([security.label])
+            elif insert:
+                capital_structure.lifo_liquidation_order.insert(liquidation_order, [security.label])
+            else:
+                capital_structure.lifo_liquidation_order[liquidation_order].append(security.label)
+
+            if optional_common_share_conversion_ratio is not None:
+                capital_structure.optional_conversion_ratios[security.label] = optional_common_share_conversion_ratio
+
+        if not inplace:
+            return capital_structure
+
     def waterfall(self):
         v = Symbol('enterprise_val')
-        for liq_priority_high_to_low in reversed(range(len(self))):
-            security_labels = self[liq_priority_high_to_low]
-            if liq_priority_high_to_low:
+        for lifo_liquidation_order in reversed(range(len(self))):
+            security_labels = self[lifo_liquidation_order]
+            if lifo_liquidation_order:
                 total_claim_val_this_round = \
                     reduce(
-                            lambda x, y: x + y,
-                            map(lambda x: x.n * x.security.claim_val_expr,
-                                map(lambda x: self[x],
-                                    security_labels)))
+                        lambda x, y: x + y,
+                        map(lambda x: x.n * x.security.claim_val_expr,
+                            map(lambda x: self[x],
+                                security_labels)))
                 claimable = Min(total_claim_val_this_round, v)
                 for security_label in security_labels:
                     n, security = self[security_label]
@@ -100,7 +148,7 @@ class CapitalStructure:
                         Piecewise(
                             ((claimable / total_claim_val_this_round) * security.claim_val_expr,
                              total_claim_val_this_round > 0),
-                            (total_claim_val_this_round,
+                            (claimable,
                              True))
                     security.val = sympy_theanify(security.val_expr)
                 v -= claimable
@@ -109,138 +157,333 @@ class CapitalStructure:
                 common_share.val_expr = v / n
                 common_share.val = sympy_theanify(common_share.val_expr)
 
-    def issue(self, n_security_option_tuple='', liq_priority=None, insert=False, inplace=True, deep=True):
+    def issue(self, owner='', securities=None, inplace=True, deep=True):
         if inplace:
-            cap_struct = self
+            capital_structure = self
         else:
-            cap_struct = self.copy(deep=deep)
+            capital_structure = self.copy(deep=deep)
 
-        n, security, optional_common_share_conversion_ratio = parse_n_security_option(n_security_option_tuple)
-        if isinstance(security, str) and security in cap_struct:
-            n_security = cap_struct[security]
-            n_security.n += n
+        if securities is not None:
+
+            security_labels_and_quantities = parse_security_info_sets(securities)
+
+            for security_label, quantity in security_labels_and_quantities.items():
+
+                capital_structure[security_label].n += quantity
+
+                if owner in capital_structure.ownerships:
+                    if security_label in capital_structure.ownerships[owner]:
+                        capital_structure.ownerships[owner][security_label] += quantity
+                    else:
+                        capital_structure.ownerships[owner][security_label] = quantity
+                else:
+                    capital_structure.ownerships[owner] = {security_label: quantity}
+
+            capital_structure.waterfall()
+
+        if not inplace:
+            return capital_structure
+
+    def transfer(self, from_owner='', to_owner='', securities=None, inplace=True, deep=True):
+        if inplace:
+            capital_structure = self
         else:
-            security_label = security.label
-            n_security_factory = namedlist('N_Security', ['n', 'security'])
-            cap_struct.outstanding[security_label] = n_security_factory(n=n, security=security)
-            if (liq_priority is None) or (liq_priority >= len(cap_struct)):
-                cap_struct.lifo.append([security_label])
-            elif insert:
-                cap_struct.lifo.insert(liq_priority, [security_label])
+            capital_structure = self.copy(deep=deep)
+
+        if securities is None:
+            security_labels_and_quantities = capital_structure.ownerships[from_owner]
+        else:
+            security_labels_and_quantities = parse_security_info_sets(securities)
+
+        for security_label, quantity in security_labels_and_quantities.items():
+
+            transferred_quantity = min(capital_structure.ownerships[from_owner][security_label], quantity)
+
+            capital_structure.ownerships[from_owner][security_label] -= transferred_quantity
+            if not capital_structure.ownerships[from_owner][security_label]:
+                del capital_structure.ownerships[from_owner][security_label]
+            if not capital_structure.ownerships[from_owner]:
+                del capital_structure.ownerships[from_owner]
+
+            if to_owner in capital_structure.ownerships:
+                if security_label in capital_structure.ownerships[to_owner]:
+                    capital_structure.ownerships[to_owner][security_label] += transferred_quantity
+                else:
+                    capital_structure.ownerships[to_owner][security_label] = transferred_quantity
             else:
-                cap_struct.lifo[liq_priority].append(security_label)
-            if optional_common_share_conversion_ratio:
-                cap_struct.optional_conversion_ratios[security_label] = optional_common_share_conversion_ratio
-
-        cap_struct.waterfall()
+                capital_structure.ownerships[to_owner] = {security_label: transferred_quantity}
 
         if not inplace:
-            return cap_struct
+            return capital_structure
 
-    def redeem(self, security_label='', n=None, inplace=True, deep=True):
+    def redeem(self, owners=None, securities=None, inplace=True, deep=True):
         if inplace:
-            cap_struct = self
+            capital_structure = self
         else:
-            cap_struct = self.copy(deep=deep)
+            capital_structure = self.copy(deep=deep)
 
-        n_security = cap_struct[security_label]
-        if n is None:
-            n = n_security.n
-        if n >= n_security.n:
-            del cap_struct.outstanding[security_label]
-            i = 0
-            while not (security_label in cap_struct[i]):
-                i += 1
-            if len(cap_struct[i]) > 1:
-                cap_struct[i].remove(security_label)
+        if (owners is not None) or (securities is not None):
+
+            owners_holdings_to_redeem = \
+                capital_structure.parse_owners_securities_holdings(
+                    owners=owners,
+                    securities=securities)
+
+            for owner, holdings_to_redeem in owners_holdings_to_redeem.items():
+                for security_label, quantity in holdings_to_redeem.items():
+                    capital_structure[security_label].n -= quantity
+                    capital_structure.ownerships[owner][security_label] -= quantity
+                    if not capital_structure.ownerships[owner][security_label]:
+                        del capital_structure.ownerships[owner][security_label]
+                    if not capital_structure.ownerships[owner]:
+                        del capital_structure.ownerships[owner]
+
+            capital_structure.waterfall()
+
+        if not inplace:
+            return capital_structure
+
+    def convert_to_common(self, owners=None, securities=None, inplace=True, deep=True):
+        if inplace:
+            capital_structure = self
+        else:
+            capital_structure = self.copy(deep=deep)
+
+        if (owners is not None) or (securities is not None):
+
+            owners_holdings_to_convert = \
+                capital_structure.parse_owners_securities_holdings(
+                    owners=owners,
+                    securities=securities)
+
+            for owner, holdings_to_convert in owners_holdings_to_convert.items():
+                for security_label, quantity in holdings_to_convert.items():
+                    if security_label in capital_structure.optional_conversion_ratios:
+                        conversion_ratio = capital_structure.optional_conversion_ratios[security_label]
+                        capital_structure.redeem(
+                            owners=owner,
+                            securities={security_label: quantity})
+                        capital_structure.issue(
+                            owner=owner,
+                            securities={capital_structure.common_share_label: quantity * conversion_ratio})
+
+            capital_structure.waterfall()
+
+        if not inplace:
+            return capital_structure
+
+    def conversion_scenarios(self, conversions_tried={}, conversions_to_try=None):
+
+        convertibles = set(self.optional_conversion_ratios)
+        conversion_possibilities = set()
+        for owner, holdings in self.ownerships.items():
+            for security_label in set(holdings) & convertibles:
+                conversion_possibilities.add((owner, security_label))
+
+        if conversions_to_try is None:
+            conversions_to_try = conversion_possibilities
+        else:
+            conversions_to_try &= conversion_possibilities
+
+        if conversions_to_try:
+
+            owner, security_label = conversions_to_try.pop()
+
+            conversions_tried_0 = conversions_tried.copy()
+            if owner in conversions_tried_0:
+                conversions_tried_0[owner][security_label] = False
             else:
-                del cap_struct.lifo[i]
-            del cap_struct.optional_conversion_ratios[security_label]
-        else:
-            n_security.n -= n
-
-        cap_struct.waterfall()
-
-        if not inplace:
-            return cap_struct
-
-    def convert_to_common(self, security_label='', n=None, inplace=True, deep=True):
-        if inplace:
-            cap_struct = self
-        else:
-            cap_struct = self.copy(deep=deep)
-
-        if security_label in cap_struct.optional_conversion_ratios:
-            n_security = cap_struct[security_label]
-            n_security_common_shares = cap_struct[cap_struct[0][0]]
-            r = cap_struct.optional_conversion_ratios[security_label]
-            if n is None:
-                n = n_security.n
-            cap_struct.redeem(security_label=security_label, n=n)
-            cap_struct.issue((r * n, n_security_common_shares.security.label))
-
-        cap_struct.waterfall()
-
-        if not inplace:
-            return cap_struct
-
-    def conversion_scenarios(self, securities_tried={}, securities_to_try=None):
-        if securities_to_try is None:
-            securities_to_try = set(self.optional_conversion_ratios)
-        else:
-            securities_to_try &= set(self.optional_conversion_ratios)
-        if securities_to_try:
-            security_label = securities_to_try.pop()
-            securities_tried_0 = securities_tried.copy()
-            securities_tried_0[security_label] = False
+                conversions_tried_0[owner] = {security_label: False}
             d = self.conversion_scenarios(
-                securities_tried=securities_tried_0,
-                securities_to_try=securities_to_try.copy())
-            securities_tried_1 = securities_tried.copy()
-            securities_tried_1[security_label] = True
+                conversions_tried=conversions_tried_0,
+                conversions_to_try=conversions_to_try.copy())
+
+            conversions_tried_1 = conversions_tried.copy()
+            if owner in conversions_tried_1:
+                conversions_tried_1[owner][security_label] = True
+            else:
+                conversions_tried_1[owner] = {security_label: True}
             d.update(
                 self.convert_to_common(
-                    security_label=security_label,
+                    owners=owner,
+                    securities=security_label,
                     inplace=False)
                 .conversion_scenarios(
-                    securities_tried=securities_tried_1,
-                    securities_to_try=securities_to_try.copy()))
+                    conversions_tried=conversions_tried_1,
+                    conversions_to_try=conversions_to_try.copy()))
+
             return d
-        else:
-            return {frozendict(securities_tried): self.copy()}
 
-    def val(self, convert_in_money=True, **kwargs):
-        if self.optional_conversion_ratios and convert_in_money:
-            conversion_scenario_vals = \
-                {conversion_scenario: cap_struct.val(convert_in_money=False, **kwargs)['vals']
-                 for conversion_scenario, cap_struct in self.conversion_scenarios().items()}
-            for conversion_scenario, vals in conversion_scenario_vals.items():
-                for security_label, converted in conversion_scenario.items():
-                    if converted:
-                        vals[security_label] = \
-                            self.optional_conversion_ratios[security_label] * vals[self.common_share_label]
-            for conversion_scenario, vals in conversion_scenario_vals.items():
+        else:
+
+            return {frozendict({owners: frozendict(conversions) for owners, conversions in conversions_tried.items()}):
+                    self.copy()}
+
+    def val(self, pareto_equil_conversions=True, **kwargs):
+
+        if self.optional_conversion_ratios and pareto_equil_conversions:
+
+            conversion_scenario_capital_structures = self.conversion_scenarios()
+            conversion_scenarios = conversion_scenario_capital_structures.keys()
+
+            conversion_scenario_val_results = \
+                {conversion_scenario: capital_structure.val(pareto_equil_conversions=False, **kwargs)
+                 for conversion_scenario, capital_structure in conversion_scenario_capital_structures.items()}
+
+            conversion_scenario_ownership_vals = \
+                {conversion_scenario: val_results['ownership_vals']
+                 for conversion_scenario, val_results in conversion_scenario_val_results.items()}
+
+            for conversion_scenario, ownership_vals in conversion_scenario_ownership_vals.items():
+
                 pareto = True
-                for security_label, converted in conversion_scenario.items():
-                    alternative_conversion_scenario = dict(conversion_scenario)
-                    alternative_conversion_scenario[security_label] = \
-                        not alternative_conversion_scenario [security_label]
-                    pareto &= \
-                        (vals[security_label] >=
-                         conversion_scenario_vals[frozendict(alternative_conversion_scenario)][security_label])
-                if pareto:
-                    return dict(conversion_scenario=conversion_scenario, vals=vals)
-        else:
-            return dict(
-                conversion_scenario=dict.fromkeys(self.optional_conversion_ratios.keys(), False),
-                vals={security_label: float(self[security_label].security.val(**kwargs))
-                      for security_label in self.outstanding})
 
-    def __call__(self, convert_in_money=True, **kwargs):
-        df = self.show()
-        val_results = self.val(convert_in_money=convert_in_money, **kwargs)
-        df['converted'] = [val_results['conversion_scenario'].get(security_label) for security_label in df.index]
-        df['val / unit'] = [val_results['vals'][security_label] for security_label in df.index]
-        df['val'] = df.outstanding * df['val / unit']
-        df.loc['TOTAL'] = 5 * [''] + [df.val.sum()]
-        return df
+                for owner, conversions in conversion_scenario.items():
+
+                    for alternative_conversion_scenario in conversion_scenarios:
+
+                        pareto_alternative = True
+
+                        for another_owner, another_owner_conversions in alternative_conversion_scenario.items():
+                            if another_owner != owner:
+                                pareto_alternative &= \
+                                    (conversion_scenario[another_owner] ==
+                                     alternative_conversion_scenario[another_owner])
+                                if not pareto_alternative:
+                                    break
+
+                        if pareto_alternative:
+                            pareto &= \
+                                (ownership_vals[owner] >=
+                                 conversion_scenario_ownership_vals[alternative_conversion_scenario][owner])
+                        else:
+                            continue
+
+                if pareto:
+                    return dict(
+                        conversion_scenario=conversion_scenario,
+                        capital_structure=conversion_scenario_capital_structures[conversion_scenario],
+                        security_vals=conversion_scenario_val_results[conversion_scenario]['security_vals'],
+                        ownership_vals=ownership_vals)
+
+        else:
+
+            convertibles = set(self.optional_conversion_ratios)
+            conversion_scenario = {}
+            for owner, holdings in self.ownerships.items():
+                for security_label in set(holdings) & convertibles:
+                    if owner in conversion_scenario:
+                        conversion_scenario[owner][security_label] = False
+                    else:
+                        conversion_scenario[owner] = {security_label: False}
+
+            security_vals = \
+                {security_label: float(self[security_label].security.val(**kwargs))
+                 for security_label in self.outstanding}
+
+            ownership_vals = {}
+            for owner, holdings in self.ownerships.items():
+                ownership_vals[owner] = \
+                    reduce(
+                        lambda x, y: x + y,
+                        map(lambda (security_label, quantity): quantity * security_vals[security_label],
+                            holdings.items()))
+
+            return dict(
+                conversion_scenario=conversion_scenario,
+                capital_structure=self.copy(),
+                security_vals=security_vals,
+                ownership_vals=ownership_vals)
+
+    def __call__(self, convert_in_money=True, ownerships=False, **kwargs):
+        val_results = self.val(pareto_equil_conversions=convert_in_money, **kwargs)
+        if ownerships:
+            return self.val(pareto_equil_conversions=True, **kwargs)
+        else:
+            df = val_results['capital_structure'].show()
+            df['Val / Unit'] = [val_results['security_vals'][security_label] for security_label in df.index]
+            df['Val'] = df.Outstanding * df['Val / Unit']
+            df.loc['TOTAL'] = 4 * [''] + [df.Val.sum()]
+            return df
+
+    def parse_owners_securities_holdings(self, owners=None, securities=None):
+
+        if (owners is not None) or (securities is not None):
+
+            d = {}
+
+            if owners is None:
+
+                if isinstance(securities, str):
+                    securities = securities,
+
+                for security_label in securities:
+                    for owner, holdings in self.ownerships.items():
+                        if security_label in holdings:
+                            quantity = holdings[security_label]
+                            if owner in d:
+                                d[owner][security_label] = quantity
+                            else:
+                                d[owner] = {security_label: quantity}
+
+            elif isinstance(owners, (list, tuple)):
+
+                if isinstance(securities, str):
+                    securities = securities,
+
+                for security_label in securities:
+                    for owner in owners:
+                        holdings = self.ownerships[owner]
+                        if security_label in holdings:
+                            quantity = holdings[security_label]
+                            if owner in d:
+                                d[owner][security_label] = quantity
+                            else:
+                                d[owner] = {security_label: quantity}
+
+            elif isinstance(owners, str):
+
+                owner = owners
+                d[owner] = {}
+
+                if isinstance(securities, dict):
+
+                    for security_label, quantity in securities.items():
+                        if security_label in self.ownerships[owner]:
+                            d[owner][security_label] = \
+                                min(self.ownerships[owner][security_label], quantity)
+
+                elif isinstance(securities, str):
+
+                    security_label = securities
+
+                    if security_label in self.ownerships[owner]:
+                        d[owner][security_label] = \
+                            self.ownerships[owner][security_label]
+
+                elif isinstance(securities, (list, tuple)):
+
+                    for security_info_set in securities:
+
+                        if isinstance(security_info_set, (list, tuple)):
+
+                            if isinstance(security_info_set[0], str) and \
+                                    isinstance(security_info_set[1], (int, float)):
+                                security_label, quantity = security_info_set
+                            elif isinstance(security_info_set[0], (int, float)) and \
+                                    isinstance(security_info_set[1], str):
+                                quantity, security_label = security_info_set
+
+                            if security_label in self.ownerships[owner]:
+                                d[owner][security_label] = \
+                                    min(self.ownerships[owner][security_label], quantity)
+
+                        elif isinstance(security_info_set, str):
+
+                            security_label = security_info_set
+
+                            if security_label in self.ownerships[owner]:
+                                d[owner][security_label] = \
+                                    self.ownerships[owner][security_label]
+
+            return d

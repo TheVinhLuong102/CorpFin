@@ -2,6 +2,7 @@ from __future__ import absolute_import, print_function
 from copy import copy, deepcopy
 from frozendict import frozendict
 from namedlist import namedlist
+from numpy import allclose
 from pandas import DataFrame
 from sympy import Min, Piecewise, Symbol
 from HelpyFuncs.SymPy import sympy_theanify
@@ -200,7 +201,7 @@ class CapitalStructure:
             transferred_quantity = min(capital_structure.ownerships[from_owner][security_label], quantity)
 
             capital_structure.ownerships[from_owner][security_label] -= transferred_quantity
-            if not capital_structure.ownerships[from_owner][security_label]:
+            if allclose(capital_structure.ownerships[from_owner][security_label], 0.):
                 del capital_structure.ownerships[from_owner][security_label]
             if not capital_structure.ownerships[from_owner]:
                 del capital_structure.ownerships[from_owner]
@@ -232,8 +233,10 @@ class CapitalStructure:
             for owner, holdings_to_redeem in owners_holdings_to_redeem.items():
                 for security_label, quantity in holdings_to_redeem.items():
                     capital_structure[security_label].n -= quantity
+                    if allclose(capital_structure[security_label].n, 0.):
+                        capital_structure[security_label].n = 0.
                     capital_structure.ownerships[owner][security_label] -= quantity
-                    if not capital_structure.ownerships[owner][security_label]:
+                    if allclose(capital_structure.ownerships[owner][security_label], 0.):
                         del capital_structure.ownerships[owner][security_label]
                     if not capital_structure.ownerships[owner]:
                         del capital_structure.ownerships[owner]

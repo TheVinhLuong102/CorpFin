@@ -328,7 +328,7 @@ class CapitalStructure:
             return {frozendict({owners: frozendict(conversions) for owners, conversions in conversions_tried.items()}):
                     self.copy()}
 
-    def val(self, pareto_equil_conversions=True, **kwargs):
+    def val(self, pareto_equil_conversions=False, **kwargs):
 
         if self.optional_conversion_ratios and pareto_equil_conversions:
 
@@ -404,7 +404,7 @@ class CapitalStructure:
                 security_vals=security_vals,
                 ownership_vals=ownership_vals)
 
-    def __call__(self, pareto_equil_conversions=True, ownerships=False, **kwargs):
+    def __call__(self, pareto_equil_conversions=False, ownerships=False, **kwargs):
         val_results = self.val(pareto_equil_conversions=pareto_equil_conversions, **kwargs)
         capital_structure = val_results['capital_structure']
         security_vals = val_results['security_vals']

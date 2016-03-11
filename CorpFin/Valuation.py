@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 from datetime import datetime
 from numpy import nan, isnan
 from pandas import DataFrame
-from sympy import And, Eq, Expr, Piecewise, Symbol, symbols
+from sympy import Eq, Expr, Piecewise, Symbol, symbols
 from sympy.printing.theanocode import theano_function
 from HelpyFuncs.SymPy import sympy_eval_by_theano
 
@@ -204,8 +204,8 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.RevenueChange[i] / self.Revenue[i - 1] - 1.,
-                 And(self.Revenue[i - 1] > 0., self.Revenue[i] > 0.)),
-                (And(self.Revenue[i - 1] > 0., self.Revenue[i] > 0.),
+                 (self.Revenue[i - 1] > 0.) * (self.Revenue[i] > 0.)),
+                ((self.Revenue[i - 1] > 0.) * (self.Revenue[i] > 0.),
                  True))
              for i in self.index_range_from_1]
 
@@ -225,8 +225,8 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.OpEx[i] / self.OpEx[i - 1] - 1.,
-                 And(self.OpEx[i - 1] > 0., self.OpEx[i] > 0.)),
-                (And(self.OpEx[i - 1] > 0., self.OpEx[i] > 0.),
+                 (self.OpEx[i - 1] > 0.) * (self.OpEx[i] > 0.)),
+                ((self.OpEx[i - 1] > 0.) * (self.OpEx[i] > 0.),
                  True))
              for i in self.index_range_from_1]
 
@@ -261,8 +261,8 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.EBIT[i] / self.EBIT[i - 1] - 1.,
-                 And(self.EBIT[i - 1] > 0., self.EBIT[i] > 0.)),
-                (And(self.EBIT[i - 1] > 0., self.EBIT[i] > 0.),
+                 (self.EBIT[i - 1] > 0.) * (self.EBIT[i] > 0.)),
+                ((self.EBIT[i - 1] > 0.) * (self.EBIT[i] > 0.),
                  True))
              for i in self.index_range_from_1]
 
@@ -319,8 +319,8 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.FA[i] / self.FA[i - 1] - 1.,
-                 And(self.FA[i - 1] > 0., self.FA[i] > 0.)),
-                (And(self.FA[i - 1] > 0., self.FA[i] > 0.),
+                 (self.FA[i - 1] > 0.) * (self.FA[i] > 0.)),
+                ((self.FA[i - 1] > 0.) * (self.FA[i] > 0.),
                  True))
              for i in self.index_range_from_1]
 
@@ -405,8 +405,8 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.CapEx[i] / self.CapEx[i - 1] - 1.,
-                 And(self.CapEx[i - 1] > 0., self.CapEx[i] > 0.)),
-                (And(self.CapEx[i - 1] > 0., self.CapEx[i] > 0.),
+                 (self.CapEx[i - 1] > 0.) * (self.CapEx[i] > 0.)),
+                ((self.CapEx[i - 1] > 0.) * (self.CapEx[i] > 0.),
                  True))
              for i in self.index_range_from_1]
 
@@ -447,8 +447,8 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.NWC[i] / self.NWC[i - 1] - 1.,
-                 And(self.NWC[i - 1] > 0., self.NWC[i] > 0.)),
-                (And(self.NWC[i - 1] > 0., self.NWC[i] > 0.),
+                 (self.NWC[i - 1] > 0.) * (self.NWC[i] > 0.)),
+                ((self.NWC[i - 1] > 0.) * (self.NWC[i] > 0.),
                  True))
              for i in self.index_range_from_1]
 

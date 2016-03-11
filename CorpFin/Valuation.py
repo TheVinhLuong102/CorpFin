@@ -624,7 +624,7 @@ class UnlevValModel(ValModel):
             self.Val_of_TV = \
                 [present_value(
                     amount=self.TV,
-                    discount_rate=self.StabilizedDiscountRate,
+                    discount_rate=self.ProFormaPeriodDiscountRate,
                     nb_periods=self.nb_pro_forma_years_excl_0 - i)
                  for i in self.index_range]
 

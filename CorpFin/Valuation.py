@@ -203,7 +203,7 @@ class UnlevValModel(ValModel):
         self.RevenueGrowth = \
             [nan] + \
             [Piecewise(
-                (self.RevenueChange[i] / self.Revenue[i - 1] - 1.,
+                (self.RevenueChange[i] / self.Revenue[i - 1],
                  Eq((self.Revenue[i - 1] > 0.) * (self.Revenue[i] > 0.), 1.)),
                 ((self.Revenue[i - 1] > 0.) * (self.Revenue[i] > 0.),
                  True))

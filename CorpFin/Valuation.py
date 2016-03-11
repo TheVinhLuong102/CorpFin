@@ -204,7 +204,7 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.RevenueChange[i] / self.Revenue[i - 1] - 1.,
-                 (self.Revenue[i - 1] > 0.) * (self.Revenue[i] > 0.)),
+                 Eq((self.Revenue[i - 1] > 0.) * (self.Revenue[i] > 0.), 1.)),
                 ((self.Revenue[i - 1] > 0.) * (self.Revenue[i] > 0.),
                  True))
              for i in self.index_range_from_1]
@@ -225,7 +225,7 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.OpEx[i] / self.OpEx[i - 1] - 1.,
-                 (self.OpEx[i - 1] > 0.) * (self.OpEx[i] > 0.)),
+                 Eq((self.OpEx[i - 1] > 0.) * (self.OpEx[i] > 0.), 1.)),
                 ((self.OpEx[i - 1] > 0.) * (self.OpEx[i] > 0.),
                  True))
              for i in self.index_range_from_1]
@@ -261,7 +261,7 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.EBIT[i] / self.EBIT[i - 1] - 1.,
-                 (self.EBIT[i - 1] > 0.) * (self.EBIT[i] > 0.)),
+                 Eq((self.EBIT[i - 1] > 0.) * (self.EBIT[i] > 0.), 1.)),
                 ((self.EBIT[i - 1] > 0.) * (self.EBIT[i] > 0.),
                  True))
              for i in self.index_range_from_1]
@@ -319,7 +319,7 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.FA[i] / self.FA[i - 1] - 1.,
-                 (self.FA[i - 1] > 0.) * (self.FA[i] > 0.)),
+                 Eq((self.FA[i - 1] > 0.) * (self.FA[i] > 0.), 1.)),
                 ((self.FA[i - 1] > 0.) * (self.FA[i] > 0.),
                  True))
              for i in self.index_range_from_1]
@@ -405,7 +405,7 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.CapEx[i] / self.CapEx[i - 1] - 1.,
-                 (self.CapEx[i - 1] > 0.) * (self.CapEx[i] > 0.)),
+                 Eq((self.CapEx[i - 1] > 0.) * (self.CapEx[i] > 0.), 1.)),
                 ((self.CapEx[i - 1] > 0.) * (self.CapEx[i] > 0.),
                  True))
              for i in self.index_range_from_1]
@@ -447,7 +447,7 @@ class UnlevValModel(ValModel):
             [nan] + \
             [Piecewise(
                 (self.NWC[i] / self.NWC[i - 1] - 1.,
-                 (self.NWC[i - 1] > 0.) * (self.NWC[i] > 0.)),
+                 Eq((self.NWC[i - 1] > 0.) * (self.NWC[i] > 0.), 1.)),
                 ((self.NWC[i - 1] > 0.) * (self.NWC[i] > 0.),
                  True))
              for i in self.index_range_from_1]

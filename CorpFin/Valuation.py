@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 from datetime import datetime
 from numpy import nan, isnan
 from pandas import DataFrame
-from sympy import Eq, Expr, Piecewise, Symbol, symbols
+from sympy import And, Eq, Expr, Piecewise, Symbol, symbols
 from sympy.printing.theanocode import theano_function
 from HelpyFuncs.SymPy import sympy_eval_by_theano
 
@@ -202,7 +202,11 @@ class UnlevValModel(ValModel):
 
         self.RevenueGrowth = \
             [nan] + \
-            [self.RevenueChange[i] / self.Revenue[i - 1]
+            [Piecewise(
+                (self.RevenueChange[i] / self.Revenue[i - 1] - 1.,
+                 And(self.Revenue[i - 1] > 0., self.Revenue[i] > 0.)),
+                (And(self.Revenue[i - 1] > 0., self.Revenue[i] > 0.),
+                 True))
              for i in self.index_range_from_1]
 
         # model OpEx
@@ -219,7 +223,11 @@ class UnlevValModel(ValModel):
 
         self.OpExGrowth = \
             [nan] + \
-            [self.OpEx[i] / self.OpEx[i - 1] - 1.
+            [Piecewise(
+                (self.OpEx[i] / self.OpEx[i - 1] - 1.,
+                 And(self.OpEx[i - 1] > 0., self.OpEx[i] > 0.)),
+                (And(self.OpEx[i - 1] > 0., self.OpEx[i] > 0.),
+                 True))
              for i in self.index_range_from_1]
 
         # model EBIT
@@ -251,7 +259,11 @@ class UnlevValModel(ValModel):
 
         self.EBITGrowth = \
             [nan] + \
-            [self.EBIT[i] / self.EBIT[i - 1] - 1.
+            [Piecewise(
+                (self.EBIT[i] / self.EBIT[i - 1] - 1.,
+                 And(self.EBIT[i - 1] > 0., self.EBIT[i] > 0.)),
+                (And(self.EBIT[i - 1] > 0., self.EBIT[i] > 0.),
+                 True))
              for i in self.index_range_from_1]
 
         # model EBIAT
@@ -305,7 +317,11 @@ class UnlevValModel(ValModel):
 
         self.FAGrowth = \
             [nan] + \
-            [self.FA[i] / self.FA[i - 1] - 1.
+            [Piecewise(
+                (self.FA[i] / self.FA[i - 1] - 1.,
+                 And(self.FA[i - 1] > 0., self.FA[i] > 0.)),
+                (And(self.FA[i - 1] > 0., self.FA[i] > 0.),
+                 True))
              for i in self.index_range_from_1]
 
         # model Depreciation
@@ -387,7 +403,11 @@ class UnlevValModel(ValModel):
 
         self.CapExGrowth = \
             [nan] + \
-            [self.CapEx[i] / self.CapEx[i - 1] - 1.
+            [Piecewise(
+                (self.CapEx[i] / self.CapEx[i - 1] - 1.,
+                 And(self.CapEx[i - 1] > 0., self.CapEx[i] > 0.)),
+                (And(self.CapEx[i - 1] > 0., self.CapEx[i] > 0.),
+                 True))
              for i in self.index_range_from_1]
 
         # model Net Working Capital and its change
@@ -425,7 +445,11 @@ class UnlevValModel(ValModel):
 
         self.NWCGrowth = \
             [nan] + \
-            [self.NWC[i] / self.NWC[i - 1] - 1.
+            [Piecewise(
+                (self.NWC[i] / self.NWC[i - 1] - 1.,
+                 And(self.NWC[i - 1] > 0., self.NWC[i] > 0.)),
+                (And(self.NWC[i - 1] > 0., self.NWC[i] > 0.),
+                 True))
              for i in self.index_range_from_1]
 
         self.NWCChange___input = \

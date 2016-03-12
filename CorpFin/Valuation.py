@@ -142,7 +142,7 @@ class ValModel:   # base class for UnlevValModel & LevValModel below
                     df[output] = result
                 else:
                     df[output] = ''
-                    if output in ('TV', 'TV_RevenueMultiple', 'TV_EBITMultiple', 'ITS_TV'):
+                    if output in ('StabilizedDiscountRate', 'TV', 'TV_RevenueMultiple', 'TV_EBITMultiple', 'ITS_TV'):
                         df.loc[self.final_pro_forma_year, output] = result
                     else:
                         df.loc['Year 0', output] = result
@@ -152,7 +152,8 @@ class ValModel:   # base class for UnlevValModel & LevValModel below
                     v = kwargs[output]
                     if isinstance(v, (list, tuple)):
                         df.ix[range(len(v)), output] = v
-                    elif output in ('LongTermGrowthRate', 'TV_RevenueMultiple'):
+                    elif output in \
+                            ('StabilizedBeta', 'StabilizedDiscountRate', 'LongTermGrowthRate', 'TV_RevenueMultiple'):
                         df.loc[self.final_pro_forma_year, output] = v
                     else:
                         df.loc['Year 0', output] = v

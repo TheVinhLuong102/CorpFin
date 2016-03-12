@@ -667,7 +667,6 @@ class UnlevValModel(ValModel):
 
         self.output_attrs = \
             ['PublicMarketPremium',
-             'ProFormaPeriodAssetDiscountRate', 'ProFormaPeriodDiscountRate', 'StabilizedDiscountRate',
              'Revenue', 'RevenueChange', 'RevenueGrowth',
              'OpEx', 'OpEx_over_Revenue', 'OpExGrowth',
              'EBIT', 'EBITMargin', 'EBITGrowth',
@@ -679,8 +678,9 @@ class UnlevValModel(ValModel):
              'NWCChange', 'NWCChange_over_Revenue',
              'NWCChange_over_RevenueChange',
              'FCF',
-             'TV', 'TV_RevenueMultiple', 'TV_EBITMultiple',
-             'Unlev_Val'   # skipping Val_of_FCF & Val_of_TV to save compilation time
+             'StabilizedDiscountRate', 'TV', 'TV_RevenueMultiple', 'TV_EBITMultiple',
+             'ProFormaPeriodAssetDiscountRate', 'ProFormaPeriodDiscountRate', 'Unlev_Val'
+                # skipping Val_of_FCF & Val_of_TV to save compilation time
              ]
 
 

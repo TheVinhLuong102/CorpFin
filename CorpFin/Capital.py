@@ -412,7 +412,7 @@ class CapitalStructure:
             df = DataFrame(columns=['Owner', 'Security', 'Val', 'Share'])
             common_share_val = self[self.common_share_label].n * security_vals[self.common_share_label]
             i = 0
-            for owner, holdings in self.ownerships.items():
+            for owner, holdings in capital_structure.ownerships.items():
                 for security_label, quantity in holdings.items():
                     security_val = quantity * security_vals[security_label]
                     if security_label == self.common_share_label:

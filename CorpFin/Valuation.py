@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 from datetime import datetime
 from numpy import nan, isnan
 from pandas import DataFrame
-from sympy import Eq, Expr, Piecewise, Symbol, symbols
+from sympy import Eq, Expr, Max, Min, Piecewise, Symbol, symbols
 from sympy.printing.theanocode import theano_function
 from HelpyFuncs.SymPy import sympy_eval_by_theano
 
@@ -273,14 +273,21 @@ class UnlevValModel(ValModel):
                 self.venture_name_prefix +
                 'CorpTaxRate')
 
-        self.EBIAT = \
-            map(lambda x:
-                Piecewise(
-                    ((1. - self.CorpTaxRate___input) * x,
-                     x > 0),
-                    (x,
-                     True)),
-                self.EBIT)
+        self.OpeningTaxLoss___input = \
+            Symbol(
+                self.venture_name_prefix +
+                'OpeningTaxLoss')
+
+        self.TaxLoss = []
+        self.TaxableEBIT = []
+        self.EBIAT = []
+        for i in self.index_range:
+            if i:
+                self.TaxLoss += [Min(self.TaxableEBIT[-1], 0.)]
+            else:
+                self.TaxLoss += [self.OpeningTaxLoss___input]
+            self.TaxableEBIT += [self.TaxLoss[i] + self.EBIT[i]]
+            self.EBIAT += [self.EBIT[i] - self.CorpTaxRate___input * Max(self.TaxableEBIT[i], 0.)]
 
         # model CLOSING Fixed Assets NET of cumulative Depreciation
         self.FA___input = \
@@ -652,7 +659,7 @@ class UnlevValModel(ValModel):
             ['Revenue', 'RevenueGrowth',
              'OpEx',
              'EBIT', 'EBITMargin',
-             'CorpTaxRate',
+             'CorpTaxRate', 'OpeningTaxLoss',
              'FA', 'FA_over_Revenue', 'FAGrowth',
              'Depreciation', 'Depreciation_over_prevFA',
              'CapEx', 'CapEx_over_Revenue', 'CapEx_over_RevenueChange', 'CapExGrowth',
@@ -670,7 +677,7 @@ class UnlevValModel(ValModel):
              'Revenue', 'RevenueChange', 'RevenueGrowth',
              'OpEx', 'OpEx_over_Revenue', 'OpExGrowth',
              'EBIT', 'EBITMargin', 'EBITGrowth',
-             'EBIAT',
+             'TaxLoss', 'TaxableEBIT', 'EBIAT',
              'FA', 'FA_over_Revenue', 'FAGrowth',
              'Depreciation', 'Depreciation_over_prevFA',
              'CapEx', 'CapEx_over_Revenue', 'CapEx_over_RevenueChange', 'CapExGrowth',
